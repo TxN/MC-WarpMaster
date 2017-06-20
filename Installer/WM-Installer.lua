@@ -12,7 +12,7 @@ for library in pairs(libraries) do if not _G[library] then _G[library] = require
 local listURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
 
 local function Download()
-  local success, response = pcall(c.internet.request, listURL)
+  local success, response = ecs.internetRequest(listURL)
   if success == false then
     return false
   end
