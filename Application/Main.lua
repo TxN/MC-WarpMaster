@@ -249,7 +249,6 @@ function tools.LoadFileList()
   return data
 end
 
-
 function tools.DownloadUpdate(data)
 	if data == nil then
 		return
