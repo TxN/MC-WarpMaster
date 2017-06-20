@@ -1,66 +1,67 @@
 --Внимание: каша!
 -- lua не очень располагает к написанию аккуратного кода, так что как-то так.
-local c = require("component")
+local c  = require("component")
 local fs = require("filesystem")
 c.gpu.setResolution(100,50)
-local warpLockFlag = false
-local inputHandler = nil
+local warpLockFlag  = false
+local inputHandler  = nil
 local mainCycleFlag = true
 
 local libraries = {
-	buffer = "doubleBuffering",
-	ecs = "ECSAPI",
-	event = "event",
-	image = "image",
-	unicode = "unicode",
-	warpdrive = "libwarp",
-	GUI = "GUI",
+	buffer        = "doubleBuffering",
+	ecs           = "ECSAPI",
+	event         = "event",
+	image         = "image",
+	unicode       = "unicode",
+	warpdrive     = "libwarp",
+	GUI           = "GUI",
 	serialization = "serialization",
-	filesystem = "filesystem",
-	computer = "computer"
+	filesystem    = "filesystem",
+	computer      = "computer"
 }
 for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
 
-local fileListURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
-local versionCheckURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
+local fileListURL            = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
+local versionCheckURL        = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
 local currentVersionFilePath = "MineOS/Applications/WarpMaster.app/Version.txt"
+local applicationDataPath    = "WarpMasterData"
 
 local colors = {
-	background = 0x262626,
-	window = 0x4e8bc4,
-	panel = 0x262646,
-	text = 0x11202d,
-	white = 0xffffff,
-	black = 0x000000,
-	menuButton = 0xff7a00,
-	redButton = 0xCC4C4C,
+	background  = 0x262626,
+	window      = 0x4e8bc4,
+	panel       = 0x262646,
+	text        = 0x11202d,
+	white       = 0xffffff,
+	black       = 0x000000,
+	menuButton  = 0xff7a00,
+	redButton   = 0xCC4C4C,
 	greenButton = 0x57A64E
 }
 
 local programSettings = {
-	firstLaunch = true,
-	navScaleX = 4,
-	navScaleY = 8,
+	firstLaunch      = true,
+	navScaleX        = 4,
+	navScaleY        = 8,
 	currentWorldType = "earth",
-	lock = false, --может быть и наивно, но смогут обойти не только лишь все.
+	lock             = false, --может быть и наивно, но смогут обойти не только лишь все.
 	autopilotEnabled = false,
-	autopilotTarget = nil
+	autopilotTarget  = nil,
+  planetsListFile  = "DreamfinityLate2016"
 }
 
-
 local shipInfo = {
-	name = "undefined",
-	weight = 0,
-	height = 1,
-	length = 1,
-	width = 1,
-	core_front = 0,
-	core_right = 0,
-	core_up = 0,
-	core_back = 0,
-	core_left = 0,
-	core_down = 0,
-	core_movement = { 0, 0, 0 },
+	name               = "undefined",
+	weight             = 0,
+	height             = 1,
+	length             = 1,
+	width              = 1,
+	core_front         = 0,
+	core_right         = 0,
+	core_up            = 0,
+	core_back          = 0,
+	core_left          = 0,
+	core_down          = 0,
+	core_movement      = { 0, 0, 0 },
 	core_rotationSteps = 0
 }
 
@@ -84,15 +85,15 @@ local tools = {}
 local softLogic = {}
 
 local autopilot = {
-	point = nil,
-	threshold = 48,
-	jumpStep = 16,
+	point             = nil,
+	threshold         = 48,
+	jumpStep          = 16,
 	remainingDistance = 0,
-	ignoreY = true,
-	delayTimerID = nil,
-	mode = "cruise",
+	ignoreY           = true,
+	delayTimerID      = nil,
+	mode              = "cruise",
 	wanderPoints,
-	wanderIndex = 1
+	wanderIndex       = 1
 }
 
 function autopilot.SetTarget(tgPoint)
@@ -192,9 +193,7 @@ function autopilot.CheckDistance(x,y,z)
 end
 
 --	{"NavPoint1","earth", 140,80,-200},
-local navPoints = {
-
-}
+local navPoints = {}
 
 -- Формат описания навигационных точек:
 -- point = {
@@ -203,37 +202,10 @@ local navPoints = {
 	-- navIndex = 1,
 	-- ex = 2
 -- }
-local displayedNavPoints = {
-	
-}
+local displayedNavPoints = {}
 
---есть информация, что точки могут быть неактуальны. ( Данные с Dreamfinity Spacecross от осени 2016 )
-local celestialBodies = {
-	{"Acheron", 5000,24726,-37604},
-	{"Asteroids", 5000,-8982,-6122},
-	{"Callisto", 5000,526,-19546},
-	{"Ceres", 5000,6672,10572},
-	{"Deimos", 5000,-946,9645},
-	{"Earth", 5000,7459,-546},
-	{"Eris", 5000,-30548,22183},
-	{"Europa", 5000,9498,-13543},
-	{"Ganymede", 5000,8301,-19938},
-	{"Io", 5000,-1455,-12371},
-	{"Jupiter", 5000,3854,-15017},
-	{"Mars", 5000,6640,6806},
-	{"Mercury", 5000,-2063,-3966},
-	{"Moon", 5000,12407,-7355},
-	{"Neptune", 5000,-28572,-12676},
-	{"Phobos", 5000,11285,10978},
-	{"Pluto", 5000,33034,-11595},
-	{"Rhea", 5000,17108,956},
-	{"Saturn", 5000,19910,6697},
-	{"Titan", 5000,24942,10277},
-	{"Triton", 5000,34003,-9972},
-	{"Uranus", 5000,-7398,25454},
-	{"Varda", 5000,13147,48253},
-	{"Venus", 5000,-5964,249}
-}
+--Данные об областях перехода на планеты
+local celestialBodies = {}
 
 local function CheckCore()
 	if not warpdrive.HasController() then
@@ -452,10 +424,10 @@ function softLogic.ParseRCCommand(command,sender)
 			end
 		elseif args[3] == "lock" then
 			programSettings.lock = true
-			tools.SaveData("WarpMasterSettings.txt", programSettings)			
+			softLogic.Save()
 		elseif args[3] == "unlock" then
 			programSettings.lock = false
-			tools.SaveData("WarpMasterSettings.txt", programSettings)
+			softLogic.Save()
 		elseif args[3] == "addTrusted" then
 			if args[4] ~= nil then
 				softLogic.addTrusted(args[4])
@@ -554,24 +526,32 @@ function softLogic.Quit()
 end
 
 function softLogic.Save()
-	tools.SaveData("WarpMasterNavPoints.txt", navPoints)
-	tools.SaveData("WarpMasterSettings.txt", programSettings)
-	tools.SaveData("WarpMasterTrustedPlayers.txt", trustedPlayers)
+	tools.SaveData(applicationDataPath.."/WarpMasterNavPoints.txt", navPoints)
+	tools.SaveData(applicationDataPath.."/WarpMasterSettings.txt", programSettings)
+	tools.SaveData(applicationDataPath.."/WarpMasterTrustedPlayers.txt", trustedPlayers)
 end
 
 function softLogic.Load()
-	local loadedData = tools.LoadData("WarpMasterNavPoints.txt")
+	local loadedData = tools.LoadData(applicationDataPath.."/WarpMasterNavPoints.txt")
 	if loadedData ~= nil then
 		navPoints = loadedData
 	end
-	loadedData = tools.LoadData("WarpMasterSettings.txt")
+	loadedData = tools.LoadData(applicationDataPath.."/WarpMasterSettings.txt")
 	if loadedData ~= nil then
 		programSettings = loadedData
 	end
-	loadedData = tools.LoadData("WarpMasterTrustedPlayers.txt")
+	loadedData = tools.LoadData(applicationDataPath.."/WarpMasterTrustedPlayers.txt")
 	if loadedData ~= nil then
 		trustedPlayers = loadedData
-	end	
+	end
+  
+  if programSettings.planetsListFile == nil then
+    programSettings.planetsListFile = "Empty"
+  end
+  loadedData = tools.LoadData(applicationDataPath.."/"..programSettings.planetsListFile..".txt")
+	if loadedData ~= nil then
+		celestialBodies = loadedData
+	end
 end
 
 function WGUI.Clear()  
@@ -896,19 +876,26 @@ function WGUI.DrawSoftwareUpdateWindow()
 	)
 	
 	if data[1] == okText then
+    
+   	ecs.square(30,20,45,5,colors.window)
+		ecs.colorText( 32, 22, 0x000000, "Обновление программы...")
+    local oldPixels = ecs.rememberOldPixels(30, 20, 75, 25)
+    
     local paths = tools.LoadFileList()
     if paths ~= nil then
       tools.DownloadUpdate(paths)
     end		
+    
+    ecs.drawOldPixels(oldPixels)
+    
+    data = ecs.universalWindow("auto", "auto", 50, colors.window, true,
+	    {"EmptyLine"},
+	    {"CenterText", 0x262626, "Готово."},
+	    {"CenterText", 0xCC4C4C, "Теперь перезапустите программу."},
+	    {"EmptyLine"},
+	    {"Button", {0x57A64E, 0xffffff, okText}}
+	  )
 	end
-	
-	data = ecs.universalWindow("auto", "auto", 50, colors.window, true,
-	{"EmptyLine"},
-	{"CenterText", 0x262626, "Готово."},
-	{"CenterText", 0xCC4C4C, "Теперь перезапустите программу."},
-	{"EmptyLine"},
-	{"Button", {0x57A64E, 0xffffff, okText}}
-	)
 end
 
 WGUI.MenuButtons = {
