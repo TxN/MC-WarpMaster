@@ -876,9 +876,10 @@ function WGUI.DrawSoftwareUpdateWindow()
 	
 	if data[1] == okText then
     
+    local oldPixels = ecs.rememberOldPixels(30, 20, 75, 25)
    	ecs.square(30,20,45,5,colors.window)
 		ecs.colorText( 32, 22, 0x000000, "Обновление программы...")
-    local oldPixels = ecs.rememberOldPixels(30, 20, 75, 25)
+    
     
     local paths = tools.LoadFileList()
     if paths ~= nil then
