@@ -3,35 +3,39 @@ local libraries = {
 	ecs = "ECSAPI",
 	event = "event",
 	filesystem = "filesystem",
-	computer = "computer"
+	computer = "computer",
+  serialization = "serialization",
+  buffer = "doubleBuffering"
 }
 for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
 
-local url = {
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Main.lua",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/Icon.pic",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/WarpMasterIcon.pic",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Lib/libwarp.lua",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/About/Russian.txt",
-      "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
-			}
-local path = {
-			"MineOS/Applications/WarpMaster.app/Main.lua",
-			"MineOS/Applications/WarpMaster.app/Resources/Icon.pic",
-			"MineOS/Applications/WarpMaster.app/Resources/WarpMasterIcon.pic",
-			"lib/libwarp.lua",
-			"MineOS/Applications/WarpMaster.app/Resources/About/Russian.txt",
-      "MineOS/Applications/WarpMaster.app/Version.txt"
-			}
+local listURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
 
 local function Download()
-	for i=1,#url do
-		ecs.getFileFromUrl(url[i], path[i])
-		print("Downloading file " .. i .. " of " .. #url)
+  local success, response = pcall(c.internet.request, listURL)
+  if success == false then
+    return false
+  end
+  
+  local fileData = serialization.unserialize(response)
+  
+	for i=1,#fileData.url do
+		ecs.getFileFromUrl(fileData.url[i], fileData.path[i])
+		print("Downloading file " .. i .. " of " .. #fileData.url)
 	end
-	
+  
+  return true
 end
 
+c.gpu.setResolution(100,50)
+buffer.flush(100, 50)
+ecs.clearScreen(0x000000)
+
 print("Downloading WarpMaster...")
-Download()
-print("Done!")
+if Download() == true then
+  print("Done!")
+else
+  print("Download error.")
+end
+
+

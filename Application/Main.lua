@@ -21,25 +21,9 @@ local libraries = {
 }
 for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
 
-
-local updaterPaths = {
-	url = {
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Main.lua",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/Icon.pic",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/WarpMasterIcon.pic",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Lib/libwarp.lua",
-			"https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Resources/About/Russian.txt",
-      "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
-			},
-	path = {
-			"MineOS/Applications/WarpMaster.app/Main.lua",
-			"MineOS/Applications/WarpMaster.app/Resources/Icon.pic",
-			"MineOS/Applications/WarpMaster.app/Resources/WarpMasterIcon.pic",
-			"lib/libwarp.lua",
-			"MineOS/Applications/WarpMaster.app/Resources/About/Russian.txt",
-      "MineOS/Applications/WarpMaster.app/Version.txt"
-    }
-}
+local fileListURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
+local versionCheckURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
+local currentVersionFilePath = "MineOS/Applications/WarpMaster.app/Version.txt"
 
 local colors = {
 	background = 0x262626,
@@ -261,6 +245,38 @@ local function CheckCore()
 	end
 	return true
 end
+
+function tools.CheckForUpdates()
+  local result = false
+  local version = 0
+  local success, response = ecs.internetRequest(versionCheckURL)
+  if success == true then
+      local curVersion = 0
+      version = tonumber(response)
+    	if fs.exists(""..currentVersionFilePath) then
+        local file = fs.open(""..currentVersionFilePath, "r")
+        local size = fs.size(""..currentVersionFilePath)
+        local rawData = file:read(size)
+        if rawData ~= nil then
+          curVersion = tonumber(rawData)
+          if version > curVersion then
+            result = true
+          end
+        end
+      end
+  end
+  return result, version
+end
+
+function tools.LoadFileList()
+  data = nil
+  local success, response = ecs.internetRequest(fileListURL)
+  if success == true then
+    data = serialization.unserialize(response)
+  end
+  return data
+end
+
 
 function tools.DownloadUpdate(data)
 	if data == nil then
@@ -880,7 +896,10 @@ function WGUI.DrawSoftwareUpdateWindow()
 	)
 	
 	if data[1] == okText then
-		tools.DownloadUpdate(updaterPaths)
+    local paths = tools.LoadFileList()
+    if paths ~= nil then
+      tools.DownloadUpdate(paths)
+    end		
 	end
 	
 	data = ecs.universalWindow("auto", "auto", 50, colors.window, true,
