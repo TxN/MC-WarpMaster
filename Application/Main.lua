@@ -349,7 +349,8 @@ function tools.CheckInputEvent(event, container)
 end
 
 function tools.SaveData(filename, object)
-	local file = fs.open(""..filename, "w")
+  fs.makeDirectory(fs.path(filename) or "")
+	local file = io.open(""..filename, "w")
 	if file ~= nil then
 		file:write(serialization.serialize(object))
 		file:close()
