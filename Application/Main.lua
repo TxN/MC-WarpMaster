@@ -23,8 +23,10 @@ for library in pairs(libraries) do if not _G[library] then _G[library] = require
 
 local fileListURL            = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
 local versionCheckURL        = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
-local currentVersionFilePath = "MineOS/Applications/WarpMaster.app/Version.txt"
+local applicationPath        = "MineOS/Applications/WarpMaster.app"
+local currentVersionFilePath = applicationPath.."/Version.txt"
 local applicationDataPath    = "WarpMasterData"
+
 
 local colors = {
 	background  = 0x262626,
@@ -548,7 +550,7 @@ function softLogic.Load()
   if programSettings.planetsListFile == nil then
     programSettings.planetsListFile = "Empty"
   end
-  loadedData = tools.LoadData(applicationDataPath.."/"..programSettings.planetsListFile..".txt")
+  loadedData = tools.LoadData(applicationPath.."/Resources/CelestialBodiesLists/"..programSettings.planetsListFile..".txt")
 	if loadedData ~= nil then
 		celestialBodies = loadedData
 	end
