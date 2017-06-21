@@ -46,7 +46,7 @@ local programSettings = {
 	lock             = false, --может быть и наивно, но смогут обойти не только лишь все.
 	autopilotEnabled = false,
 	autopilotTarget  = nil,
-  planetsListFile  = "DreamfinityLate2016"
+  planetsListFile  = "Empty"
 }
 
 local shipInfo = {
