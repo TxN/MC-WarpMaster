@@ -1530,24 +1530,16 @@ function WGUI.GetNearestNavPointIndex(x,y,z, ignoreY)
 	return nearest
 	
 end
---TODO: поправить баг с нерабочей проверкой безопасности
+
 function WGUI.JumpButtonPush()
 	tools.SendTelemetry("JumpButtonPush")
-
-	if warpdrive.MakePreFlightCheck() == nil then
-		local okText = "OK"	
-		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
-		{"CenterText", 0x262626, "Ошибка!"},
-		{"CenterText", 0x262626, "Невозможно совершить прыжок"},
-		{"Button", {0x57A64E, 0xffffff, okText}}
-		)
-	else
+	
+	local function JumpQuestion()
 		local okText = "Да"	
 		local cancelText = "Нет"
 		
 		local jumpDistance = warpdrive.CalcJumpDistance()
 		local energyCost = warpdrive.GetJumpEnergyCost(jumpDistance)
-		
 		
 		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
 		{"CenterText", 0x262626, "Вы действительно хотите совершить прыжок?"},
@@ -1572,9 +1564,24 @@ function WGUI.JumpButtonPush()
 			WGUI.Clear()  
 			WGUI.DrawNav()
 			inputHandler = WGUI.HandleNavInput			
-			
 		end
+	end
+
+	if warpdrive.MakePreFlightCheck() == false then
+		local okText = "Продолжить"	
+		local cancelText = "Отмена"	
+		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+		{"CenterText", 0x262626, "Внимание!"},
+		{"CenterText", 0x262626, "Самотестирование завершилось с ошибкой!"},
+		{"CenterText", 0x262626, "Прыжок может быть небезопасен!"},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+		)
 		
+		if data[1] == okText then
+			JumpQuestion()
+		end		
+	else
+		JumpQuestion()
 	end
 end
 
@@ -1696,6 +1703,7 @@ function WGUI.DrawNewVersionWindow(oldNumber, newNumber)
 end
 
 local function WarpSoftInit()
+	warpdrive.SetCoreMovement(0,0,0) 
 	LoadInfoFromCore()
 	
 	if tools.HasInternet() == true then
