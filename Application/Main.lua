@@ -17,7 +17,8 @@ local libraries = {
 	GUI           = "GUI",
 	serialization = "serialization",
 	filesystem    = "filesystem",
-	computer      = "computer"
+	computer      = "computer",
+	internet      = "internet"
 }
 for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
 
@@ -223,9 +224,9 @@ end
 function tools.CheckForUpdates()
   local result = false
   local version = 0
+  local curVersion = 0
   local success, response = ecs.internetRequest(versionCheckURL)
   if success == true then
-      local curVersion = 0
       version = tonumber(response)
     	if fs.exists(""..currentVersionFilePath) then
         local file = fs.open(""..currentVersionFilePath, "r")
@@ -239,7 +240,7 @@ function tools.CheckForUpdates()
         end
       end
   end
-  return result, version
+  return result, curVersion, version
 end
 
 function tools.LoadFileList()
@@ -398,6 +399,10 @@ function tools.round(x)
   return x-0.5
 end
 
+function tools.HasInternet() 
+	return c.isAvailable("internet")
+end
+
 function softLogic.ParseRCCommand(command,sender)
 	if command == nil then
 		return
@@ -490,7 +495,7 @@ function softLogic.removeTrusted(name)
 	end
 end
 
---к сожалению, как оказалось, управляющего метода у генератора воздуха нет. когда добавят, можно будет быстро допилить. Upd: метод добавлен в репу на гитхабе, надо проверить, есть ли он в релизе.
+--к сожалению, как оказалось, управляющего метода у генератора воздуха нет. когда добавят, можно будет быстро допилить. Upd: метод добавлен в репу на гитхабе, но в релизе его пока нет.
 function softLogic.SetAirGenerators(flag)
 	if flag == true then
 	
@@ -868,6 +873,17 @@ end
 function WGUI.DrawSoftwareUpdateWindow()
 	local okText = "ОК"
 	local cancelText = "Отмена"
+	
+	if tools.HasInternet() == false then
+		local data = ecs.universalWindow("auto", "auto", 55, colors.window, true,
+		{"EmptyLine"},
+		{"CenterText", 0x262626, "Нет интернет платы!"},
+		{"CenterText", 0xCC4C4C, "Для обновления программы требуется интернет."},
+		{"EmptyLine"},
+		{"Button", {0x57A64E, 0xffffff, okText}}
+		)
+		return
+	end
 
 	local data = ecs.universalWindow("auto", "auto", 55, colors.window, true,
 	{"EmptyLine"},
@@ -878,27 +894,31 @@ function WGUI.DrawSoftwareUpdateWindow()
 	)
 	
 	if data[1] == okText then
-    
-    local oldPixels = ecs.rememberOldPixels(30, 20, 75, 25)
+		WGUI.SoftwareUpdate()
+	end
+end
+
+function WGUI.SoftwareUpdate()
+	local okText = "ОК"
+	local oldPixels = ecs.rememberOldPixels(30, 20, 75, 25)
    	ecs.square(30,20,45,5,colors.window)
-		ecs.colorText( 32, 22, 0x000000, "Обновление программы...")
-    
-    
-    local paths = tools.LoadFileList()
+	ecs.colorText( 32, 22, 0x262626, "Обновление программы...")
+	
+	local paths = tools.LoadFileList()
     if paths ~= nil then
       tools.DownloadUpdate(paths)
-    end		
-    
-    ecs.drawOldPixels(oldPixels)
-    
-    data = ecs.universalWindow("auto", "auto", 50, colors.window, true,
+    end	
+	
+	ecs.drawOldPixels(oldPixels)
+	
+	local winData = ecs.universalWindow("auto", "auto", 50, colors.window, true,
 	    {"EmptyLine"},
-	    {"CenterText", 0x262626, "Готово."},
-	    {"CenterText", 0xCC4C4C, "Теперь перезапустите программу."},
+	    {"CenterText", 0x57A64E, "Готово."},
+	    {"CenterText", 0x262626, "Чтобы изменения вступили в силу,"},
+		{"CenterText", 0x262626, "перезапустите программу"},
 	    {"EmptyLine"},
 	    {"Button", {0x57A64E, 0xffffff, okText}}
-	  )
-	end
+	)	
 end
 
 WGUI.MenuButtons = {
@@ -1431,7 +1451,7 @@ function WGUI.ScreenToShipRelativeCoordinates(sx,sy)
 	return dy,0,dx
 end
 
---капец как криво, но должно работать. (и вроде бы таки работает)
+--капец как криво, но работает.
 function WGUI.WorldToShipRelativeCoordinates(tx,ty,tz)
 	local posx,posy,posz = warpdrive.GetShipPosition()
 	local ox, oy, oz = warpdrive.GetShipOrientation()
@@ -1558,7 +1578,6 @@ function WGUI.JumpButtonPush()
 	end
 end
 
-
 function WGUI.HandleAutopilot(event)
 	if event[1] == "touch" then
 		if ecs.clickedAtArea(event[3], event[4], 1, 1, 100, 50) then
@@ -1646,11 +1665,48 @@ function WGUI.FirstLaunch()
 	
 	programSettings.firstLaunch = false
 	softLogic.Save()
+end
+
+function WGUI.DrawNoInternetWindow()
+	local okText = "OK"
 	
+	local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"CenterText", 0x262626, "Не найдена интернет-плата."},
+	{"CenterText", 0x262626, "Функции, связанные с интернетом, будут отключены."},
+	{"CenterText", 0x262626, "Если вы уверены, что интернет плата установлена,"},
+	{"CenterText", 0x262626, "попробуйте перезагрузить компьютер."},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)
+end
+
+function WGUI.DrawNewVersionWindow(oldNumber, newNumber)
+	local okText = "Да"
+	local cancelText = "Нет"
+	
+	local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"CenterText", 0x262626, "Найдена новая версия WarpMaster-"..newNumber.."!"},
+	{"CenterText", 0x262626, "Версия WarpMaster-"..oldNumber.." на вашем компьютере устарела."},
+	{"CenterText", 0x262626, "Установить обновление?"},
+	{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	
+	if data[1] == okText then
+		WGUI.SoftwareUpdate()
+	end
 end
 
 local function WarpSoftInit()
 	LoadInfoFromCore()
+	
+	if tools.HasInternet() == true then
+		local check, curVersion, remoteVersion = tools.CheckForUpdates()
+		if check == true then
+			WGUI.DrawNewVersionWindow(curVersion, remoteVersion)
+		end
+	else 
+		WGUI.DrawNoInternetWindow()
+	end
+	
 end
 
 local function CheckPlayer(name)
@@ -1706,7 +1762,6 @@ if programSettings.autopilotEnabled == true then
 	programSettings.autopilotEnabled = false
 	programSettings.autopilotTarget = nil
 end
-
 
 WGUI.Clear()
 os.sleep(0.3)
