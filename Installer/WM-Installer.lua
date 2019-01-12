@@ -1,18 +1,49 @@
-local c = require("component")
+local listURL    = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
+local errorFlag  = false
+local c          = require("component")
+local term       = require("term")
+local filesystem = require("filesystem")
+
+local x,y        = c.gpu.maxResolution()
+c.gpu.setResolution(x,y)
+c.gpu.fill(1, 1, x, y, " ")
+c.gpu.setForeground(0xFFFFFF)
+c.gpu.setBackground(0x000000)
+term.setCursor(1,1)
+
+print("---- WarpMaster app installer ----")
+print(" ")
+
+if filesystem.exists("/lib/ECSAPI.lua") == false then 
+	print("Error!")
+	print("Could not find MineOS libraries.")
+	print("Please install MineOS first.")
+	print("---")
+	errorFlag = true
+end
+
+if c.isAvailable("internet") == false then 
+	print("Error!")
+	print("Internet card is not installed.")
+	print("Internet is required to install WarpMaster.")
+	print("---")
+	errorFlag = true
+end
+
 local libraries = {
 	ecs = "ECSAPI",
 	event = "event",
-	filesystem = "filesystem",
 	computer = "computer",
-  serialization = "serialization",
-  buffer = "doubleBuffering"
+	serialization = "serialization"
 }
-for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
 
-local listURL = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
-
+if errorFlag == false then
+	for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
+end
+	
 local function Download()
   local success, response = ecs.internetRequest(listURL)
+  print("Getting file list...")
   if success == false then
     return false
   end
@@ -27,15 +58,12 @@ local function Download()
   return true
 end
 
-c.gpu.setResolution(100,50)
-buffer.flush(100, 50)
-ecs.clearScreen(0x000000)
-
-print("Downloading WarpMaster...")
-if Download() == true then
-  print("Done!")
-else
-  print("Download error.")
+if errorFlag == false then
+	print("Downloading WarpMaster...")
+	if Download() == true then
+		print("Done!")
+		print("Now you can run MineOS again. Type 'OS' command in console.")
+	else
+		print("Download error.")
+	end
 end
-
-
