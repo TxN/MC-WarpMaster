@@ -33,7 +33,7 @@ function libwarp.maxJumpLength()
 end
 
 function libwarp.Warp(safe)
-	component.warpdriveShipController.mode(1)
+	component.warpdriveShipController.command("MANUAL")
 	local safeFlag = false
 	if safe == nil then
 	    safeFlag = true
@@ -45,7 +45,7 @@ function libwarp.Warp(safe)
 	
 	if (safeFlag == true) then
      component.warpdriveShipController.direction(libwarp.JumpData.direction)
-     component.warpdriveShipController.jump()
+     component.warpdriveShipController.enable(true)
 	 return true
 	else 
 		return false
@@ -53,14 +53,15 @@ function libwarp.Warp(safe)
 end
 
 function libwarp.TurnOffCore()
-	component.warpdriveShipController.mode(0)
+	component.warpdriveShipController.command("OFFLINE")
+	component.warpdriveShipController.enable(false)
 end
 
 
 
 function libwarp.SwitchHyper()
-	component.warpdriveShipController.mode(5)
-	component.warpdriveShipController.jump()
+	component.warpdriveShipController.command("HYPERDRIVE")
+	component.warpdriveShipController.enable(true)
 	return true
 end
 
@@ -134,17 +135,18 @@ function libwarp.CalcRealDistance()
 	 return realDistance
 end
 --]]
-function libwarp.GetJumpEnergyCost(distance)
-	component.warpdriveShipController.mode(1)
-	return component.warpdriveShipController.getEnergyRequired(distance)
+function libwarp.GetJumpEnergyCost()
+	component.warpdriveShipController.command("MANUAL")
+	local success, result = component.warpdriveShipController.getEnergyRequired()
+	return result
 end
 
 function libwarp.SetShipName(newName)
-	component.warpdriveShipController.coreFrequency(newName)
+	component.warpdriveShipController.shipName(newName)
 end
 
 function libwarp.GetShipName()
-	return component.warpdriveShipController.coreFrequency()
+	return component.warpdriveShipController.shipName()
 end
 
 --Получить поворот корабля после прыжка. По часовой стрелке 
@@ -191,7 +193,7 @@ function libwarp.HasController()
 end
 
 function libwarp.HasCore()
-	return component.warpdriveShipController.isAttached()
+	return component.warpdriveShipController.isAssemblyValid()
 end
 
 function libwarp.GetShipWeight()
@@ -285,9 +287,8 @@ function libwarp.MakePreFlightCheck()
 	if libwarp.HasCore() == false then
 		return false
 	end	
-	distance = libwarp.CalcJumpDistance()
 	energy = libwarp.GetEnergyLevel()
-	energyCost = libwarp.GetJumpEnergyCost(distance)
+	energyCost = libwarp.GetJumpEnergyCost()
 	if energy < energyCost then
 		return false
 	end

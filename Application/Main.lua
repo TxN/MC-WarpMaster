@@ -24,9 +24,9 @@ for library in pairs(libraries) do if not _G[library] then _G[library] = require
 
 local fileListURL            = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Installer/FileList.cfg"
 local versionCheckURL        = "https://raw.githubusercontent.com/TxN/MC-WarpMaster/master/Application/Version.txt"
-local applicationPath        = "MineOS/Applications/WarpMaster.app"
+local applicationPath        = "/MineOS/Applications/WarpMaster.app"
 local currentVersionFilePath = applicationPath.."/Version.txt"
-local applicationDataPath    = "WarpMasterData"
+local applicationDataPath    = "/MineOS/System/Application data/WarpMasterData"
 
 
 local colors = {
@@ -650,7 +650,7 @@ end
 
 function WGUI.DrawLoadScreen() 
 	ecs.emptyWindow(30,15,40,20,"Warp Navigation Master")
-	WGUI.logo = image.load("MineOS/Applications/WarpMaster.app/Resources/WarpMasterIcon.pic")
+	WGUI.logo = image.load("/MineOS/Applications/WarpMaster.app/Resources/WarpMasterIcon.pic")
 	image.draw(35,16,WGUI.logo)
 end
 
@@ -1539,7 +1539,7 @@ function WGUI.JumpButtonPush()
 		local cancelText = "Нет"
 		
 		local jumpDistance = warpdrive.CalcJumpDistance()
-		local energyCost = warpdrive.GetJumpEnergyCost(jumpDistance)
+		local energyCost = warpdrive.GetJumpEnergyCost()
 		
 		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
 		{"CenterText", 0x262626, "Вы действительно хотите совершить прыжок?"},
