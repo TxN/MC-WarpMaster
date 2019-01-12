@@ -1,6 +1,6 @@
 #WarpMaster
 
-![WarpMaster Logo](/Other/logo.png)
+![WarpMaster Logo](/Other/wm-logo.png)
 
 Программа для Minecraft-OpenComputers, позволяющая удобно работать с ядром корабля из мода WarpDrive.
 
