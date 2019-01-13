@@ -1,13 +1,14 @@
 --libwarp
---Небольшая библиотека, поддерживающая весь основной функционал управления варп-ядром
---Теперь вам больше не нужны сложные компьютеры и большие программы для того чтобы прыгать
---Хватит и компьютера первого уровня
+--РќРµР±РѕР»СЊС€Р°СЏ Р±РёР±Р»РёРѕС‚РµРєР°, РїРѕРґРґРµСЂР¶РёРІР°СЋС‰Р°СЏ РІРµСЃСЊ РѕСЃРЅРѕРІРЅРѕР№ С„СѓРЅРєС†РёРѕРЅР°Р» СѓРїСЂР°РІР»РµРЅРёСЏ РІР°СЂРї-СЏРґСЂРѕРј
+--РўРµРїРµСЂСЊ РІР°Рј Р±РѕР»СЊС€Рµ РЅРµ РЅСѓР¶РЅС‹ СЃР»РѕР¶РЅС‹Рµ РєРѕРјРїСЊСЋС‚РµСЂС‹ Рё Р±РѕР»СЊС€РёРµ РїСЂРѕРіСЂР°РјРјС‹ РґР»СЏ С‚РѕРіРѕ С‡С‚РѕР±С‹ РїСЂС‹РіР°С‚СЊ
+--РҐРІР°С‚РёС‚ Рё РєРѕРјРїСЊСЋС‚РµСЂР° РїРµСЂРІРѕРіРѕ СѓСЂРѕРІРЅСЏ
 --
 
--- Адаптивная загрузка необходимых библиотек и компонентов
+-- РђРґР°РїС‚РёРІРЅР°СЏ Р·Р°РіСЂСѓР·РєР° РЅРµРѕР±С…РѕРґРёРјС‹С… Р±РёР±Р»РёРѕС‚РµРє Рё РєРѕРјРїРѕРЅРµРЅС‚РѕРІ
 local libraries = {
 	component = "component",
-	term = "term"
+	term      = "term",
+  utils     = "wm_utils"
 }
 
 for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end; libraries = nil
@@ -16,9 +17,9 @@ _G.gpu = component.gpu
 local libwarp = {}
 
 libwarp.JumpData = {
-	distance = 1,
+	distance  = 1,
 	direction = 0,
-	summon = false
+	summon    = false
 }
 libwarp.ShipInfo = {
 	shipName = "unnamed"
@@ -149,7 +150,7 @@ function libwarp.GetShipName()
 	return component.warpdriveShipController.shipName()
 end
 
---Получить поворот корабля после прыжка. По часовой стрелке 
+--РџРѕР»СѓС‡РёС‚СЊ РїРѕРІРѕСЂРѕС‚ РєРѕСЂР°Р±Р»СЏ РїРѕСЃР»Рµ РїСЂС‹Р¶РєР°. РџРѕ С‡Р°СЃРѕРІРѕР№ СЃС‚СЂРµР»РєРµ 
 function libwarp.GetRotation(inDegs) 
 	if inDegs == nil or inDegs == false then
 		return component.warpdriveShipController.rotationSteps()
@@ -158,7 +159,7 @@ function libwarp.GetRotation(inDegs)
 	end
 end
 
---Задать поворот корабля после прыжка (0-3 или 0-270). По часовой стрелке 
+--Р—Р°РґР°С‚СЊ РїРѕРІРѕСЂРѕС‚ РєРѕСЂР°Р±Р»СЏ РїРѕСЃР»Рµ РїСЂС‹Р¶РєР° (0-3 РёР»Рё 0-270). РџРѕ С‡Р°СЃРѕРІРѕР№ СЃС‚СЂРµР»РєРµ 
 function libwarp.SetRotation(rotation) 
 	if (rotation == nil) then
 		return
@@ -196,6 +197,17 @@ function libwarp.HasCore()
 	return component.warpdriveShipController.isAssemblyValid()
 end
 
+function libwarp.CheckCore()
+	if not libwarp.HasController() then
+		return false
+	else 
+		if not libwarp.HasCore() then
+			return false
+		end
+	end
+	return true
+end
+
 function libwarp.GetShipWeight()
 	return component.warpdriveShipController.getShipSize()
 end
@@ -225,7 +237,7 @@ function libwarp.SetDimensions(front,back, left,right, up, down)
 	component.warpdriveShipController.dim_positive(front, right, up)
 	component.warpdriveShipController.dim_negative(back, left, down)
 end
-
+ 
 function libwarp.CalcDestinationPoint()
   local posx,posy,posz = libwarp.GetShipPosition()
   local res = { x = posx, y = posy, z = posz }
@@ -299,5 +311,92 @@ end
 function libwarp.GetEnergyLevel()
 	return component.warpdriveShipController.energy()
 end
+
+function libwarp.CalcDistanceToPoint(x,y,z, ignoreY)
+	if ignoreY == nil then
+		ignoreY = false
+	end
+	if y == nil then
+		y = 0
+	end
+	local posx,posy,posz = libwarp.GetShipPosition()
+	x = x - posx
+	y = y - posy
+	z = z - posz
+	if ignoreY == true then
+		y = 0
+	end
+	local dist = math.sqrt(x*x + y*y + z*z)
+	
+	return math.floor(dist)
+end
+
+--РєР°РїРµС† РєР°Рє РєСЂРёРІРѕ, РЅРѕ СЂР°Р±РѕС‚Р°РµС‚.
+function libwarp.WorldToShipRelativeCoordinates(tx,ty,tz)
+	local posx,posy,posz = libwarp.GetShipPosition()
+	local ox, oy, oz     = libwarp.GetShipOrientation()
+	local dx = tx - posx
+	local dy = ty - posy
+	local dz = tz - posz
+	local dspX = 0
+	local dspY = 0
+	if ox == 1 then
+		dspX = dz
+		dspY = dx
+	elseif ox == -1 then
+		dspX = -dz
+		dspY = -dx
+	elseif oz == 1 then
+		dspX = -dx
+		dspY = dz
+	elseif oz == -1 then
+		dspX = dx
+		dspY = -dz
+	end
+	return dspY,dy,dspX
+end
+
+-- Р—Р°РґР°РµС‚ С‚РѕС‡РєСѓ РїСЂС‹Р¶РєР°, СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰СѓСЋ РѕРіСЂР°РЅРёС‡РµРЅРёСЏРј (РЅРµ РјРµРЅСЊС€Рµ РјРёРЅРёРјР°Р»СЊРЅРѕР№ РґРёСЃС‚Р°РЅС†РёРё, РЅРѕ Рё РЅРµ Р±РѕР»СЊС€Рµ РјР°РєСЃРёРјР°Р»СЊРЅРѕР№)
+function libwarp.SetJumpTargetLimited(x,y,z,rot,step)
+  if x == nil or y == nil or z == nil then
+		return false
+	end
+	if rot == nil then 
+		rot = "0"
+	end
+  local mindz = libwarp.GetShipWidth() + 2
+  local mindy = libwarp.GetShipHeight() + 2
+  local mindx = libwarp.GetShipLength() + 2
+  local dx,dy,dz = tonumber(x),tonumber(y),tonumber(z)
+  local maxJumpDist =  libwarp.maxJumpLength()
+  
+  if dx ~= 0 then
+    dx = utils.ClampMagnitude(dx, mindx, maxJumpDist + mindx)
+	end
+	if dy ~= 0 then
+    dy = utils.ClampMagnitude(dy, mindy, maxJumpDist + mindy)
+	end
+	if dz ~= 0 then
+    dz = utils.ClampMagnitude(dz, mindz, maxJumpDist + mindz)
+  end
+  
+  if step ~= nil then
+		dx = utils.round(dx/step)*step
+		dz = utils.round(dz/step)*step
+	end
+  
+  libwarp.SetCoreMovement(dx,dy,dz)
+	libwarp.SetRotation(tonumber(rot))
+  return true, dx, dy, dz
+end
+
+-- РќР° Р±СѓРґСѓС‰РµРµ: РїРѕРґСѓРјР°С‚СЊ Рѕ С‚РѕРј, С‡С‚Рѕ РіРµРЅРµСЂР°С‚РѕСЂРѕРІ РЅР° РєРѕСЂР°Р±Р»Рµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РґРѕС„РёРіР°
+function libwarp.SetAirGenerators(flag)
+	if not component.isAvailable("warpdriveAirGenerator") then
+		return
+	end
+	component.warpdriveAirGenerator.enable(flag)
+end
+
 
 return libwarp
