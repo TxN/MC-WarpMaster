@@ -39,7 +39,8 @@ local colors = {
 	menuButton  = 0xff7a00,
 	redButton   = 0xCC4C4C,
 	greenButton = 0x57A64E,
-  gray        = 0x2D2D2D
+  gray        = 0x2D2D2D,
+  blue        = 0x3366CC
 }
 
 local programSettings = {
@@ -84,7 +85,9 @@ end
 local WGUI      = {}
 local tools     = {}
 local softLogic = {}
+local shipLogic = {}
 
+WGUI.refreshMethods = {}
 WGUI.screenWidth  = 160
 WGUI.screenHeight = 50
 
@@ -202,17 +205,94 @@ function softLogic.Quit()
 	end
 end
 
+function shipLogic.GetCoreCharge() 
+  local chargePercent = 0
+	local energyLevel, maxEnergy = 0,1
+	if warpdrive.CheckCore() == true then
+		energyLevel, maxEnergy = warpdrive.GetEnergyLevel()
+		chargePercent = math.ceil((energyLevel / maxEnergy) * 100)
+	end
+  return chargePercent, energyLevel, maxEnergy
+end
+
+function WGUI.BorderPanel(x, y, width, height, bgColor, borderColor,  transparency)
+  local object = GUI.object(x, y, width, height)
+  object.colors = {
+		background   = bgColor,
+    border       = borderColor,
+		transparency = transparency
+	}
+  object.draw = WGUI.DrawBorderPanel
+  
+  return object
+end
+
+function WGUI.DrawBorderPanel(object) -- Чисто отрисовочный метод для кастомного объекта
+	buffer.drawRectangle(object.x, object.y, object.width, object.height, object.colors.background, 0x0, " ", object.colors.transparency)
+  local stringUp   = "┌"..string.rep("─", object.width - 2).."┐"
+	local stringDown = "└"..string.rep("─", object.width - 2).."┘"
+  buffer.drawText(object.x, object.y, object.colors.border, stringUp)
+  buffer.drawText(object.x, object.y + object.height - 1, object.colors.border, stringDown)
+  local yPos = 1
+	for i = 1, (object.height - 2) do
+		buffer.drawText(object.x, object.y + yPos, object.colors.border, "│")
+		buffer.drawText(object.x + object.width - 1, object.y + yPos, object.colors.border, "│")
+		yPos = yPos + 1
+	end
+	return object
+end
+
 
 function WGUI.Init()
   WGUI.app = GUI.application(1, 1, WGUI.screenWidth, WGUI.screenHeight)
+  -- основное окно
   WGUI.mainWindow = WGUI.app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster", true))
+  WGUI.mainWindow.eventHandler = nil -- нам не нужна поддержка перетаскивания окна, оно должно быть всегда в одном положении.
+  WGUI.mainWindow.titleLabel.textColor = colors.white
   local actionButtons = WGUI.mainWindow.actionButtons
   actionButtons.close.onTouch = WGUI.Terminate
-  
   WGUI.mainWindow.backgroundPanel.colors.background = colors.black
+  WGUI.mainWindow.titlePanel.colors.background = colors.panel
+  -- Панель с уровнем заряда
+  local chargeBarText = "Заряд ядра:[                    ]"
+  WGUI.chargeBar = WGUI.mainWindow:addChild(GUI.text(WGUI.screenWidth - 33, 1, colors.white, chargeBarText))
+  WGUI.chargeBarPanel =  WGUI.mainWindow:addChild(GUI.panel(WGUI.screenWidth - 21, 1, 20, 1, colors.blue))
+  WGUI.chargeBarEnergyLevel = WGUI.mainWindow:addChild(GUI.text(WGUI.screenWidth - 11, 1, colors.white, "0%"))
+  WGUI.chargeBar.update = WGUI.UpdateChargeBar
+  --Правая панель меню
+  WGUI.rightPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 2, 30, WGUI.screenHeight - 1, colors.black, colors.white))
+  WGUI.rightPanel.titleText = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 2, colors.white, "МЕНЮ:"))
   
+  -- окно НАВ режима
+  
+  WGUI.navWindow = WGUI.app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
+  -- Панель со списком точек
+  WGUI.navWindow.pointsBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(1, 1, 30, 49, colors.black, colors.white))
+  WGUI.navWindow.pointsBorder.titleText = WGUI.navWindow:addChild(GUI.text(2, 1, colors.white, "Навигационные точки:"))
+  -- Панель карты
+  WGUI.navWindow.mapBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(31, 1, 100, 49, colors.black, colors.white))
+  WGUI.navWindow.mapBorder.titleText = WGUI.navWindow:addChild(GUI.text(32, 1, colors.white, "Карта:"))
+
+  --table.insert(WGUI.refreshMethods, WGUI.UpdateChargeBar)
+end
+
+
+function WGUI.Refresh()
+  for k,v in ipairs(WGUI.refreshMethods) do
+    v()
+  end
   WGUI.app:draw(true)
 end
+
+function WGUI.UpdateChargeBar() 
+  local chargePercent, energyLevel, maxEnergy = shipLogic.GetCoreCharge()
+  local maxBarWidth = 20
+  local barWidth = math.ceil( (chargePercent * maxBarWidth) / 100)
+  WGUI.chargeBarEnergyLevel.text = chargePercent.."% ("..energyLevel..")"
+  WGUI.chargeBarEnergyLevel.localX = WGUI.screenWidth - 16
+  WGUI.chargeBarPanel.width = barWidth
+end
+
 function WGUI.Terminate()
   softLogic.Quit()
   WGUI.app:stop()
@@ -244,7 +324,7 @@ filesystem.setAutorunEnabled(false)
 softLogic.Load()
 c.gpu.setResolution(WGUI.screenWidth, WGUI.screenHeight)
 WGUI.Init()
-
+WGUI.Refresh()
 
 if not warpdrive.CheckCore() then
 	WGUI.DrawCoreNotFoundError()
