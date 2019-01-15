@@ -39,17 +39,34 @@ local colors = {
 	menuButton  = 0xff7a00,
 	redButton   = 0xCC4C4C,
 	greenButton = 0x57A64E,
+  greenDark   = 0x47903E,
   gray        = 0x2D2D2D,
   blue        = 0x3366CC
 }
+
+local worldTypes = {
+  earth  = "Земля",
+  space  = "Космос",
+  hyper  = "Гипер",
+  planet = "Планета",
+  other  = "Прочее"
+ }
+ 
+local uiModes = {}
+uiModes["NAV"] = "Навигация"
+uiModes["OPT"] = "Настройки"
+uiModes["UTL"] = "Инструменты"
+uiModes["NFO"] = "Инфо"
+ 
 
 local programSettings = {
 	firstLaunch      = true,
 	navScaleX        = 4,
 	navScaleY        = 8,
 	currentWorldType = "earth",
-	lock             = false, --может быть и наивно, но смогут обойти не только лишь все.
-	planetsListFile  = "Empty"
+	lock             = false, 
+	planetsListFile  = "Empty",
+  currentGUIMode   = "NAV"
 }
 
 local shipInfo = {
@@ -243,7 +260,7 @@ function WGUI.DrawBorderPanel(object) -- Чисто отрисовочный м�
 end
 
 
-function WGUI.Init()
+function WGUI.Init() -- основной метод, где задаются все основные элементы интерфейса
   WGUI.app = GUI.application(1, 1, WGUI.screenWidth, WGUI.screenHeight)
   -- основное окно
   WGUI.mainWindow = WGUI.app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster", true))
@@ -260,11 +277,39 @@ function WGUI.Init()
   WGUI.chargeBarEnergyLevel = WGUI.mainWindow:addChild(GUI.text(WGUI.screenWidth - 11, 1, colors.white, "0%"))
   WGUI.chargeBar.update = WGUI.UpdateChargeBar
   --Правая панель меню
-  WGUI.rightPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 2, 30, WGUI.screenHeight - 1, colors.black, colors.white))
+  WGUI.rightPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 2, 30, 14, colors.black, colors.white))
   WGUI.rightPanel.titleText = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 2, colors.white, "МЕНЮ:"))
+  --Кнопки основного меню
+  WGUI.rightPanel.mainMenuList = WGUI.app:addChild(GUI.list(WGUI.screenWidth - 28,3,28,12,3,0,colors.gray, colors.white, colors.gray, colors.white, colors.menuButton, colors.white))
+  local modeTypeIndex = 1
+  for k,v in pairs(uiModes) do
+    local button = WGUI.rightPanel.mainMenuList:addItem(v)
+    button.onTouch =  function()  WGUI.SelectGUIMode(k) end
+    if programSettings.currentGUIMode == k then
+      WGUI.rightPanel.mainMenuList.selectedItem = modeTypeIndex
+    end
+    modeTypeIndex = modeTypeIndex + 1
+  end
+  -- Кнопки прыжка и гипера на правой панели
+  WGUI.rightPanel.actionBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 16, 30, 21, colors.black, colors.white))
+  WGUI.rightPanel.actionBoxPanel.titleText = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 16, colors.white, "ДЕЙСТВИЯ:"))
+  WGUI.rightPanel.actionBoxPanel.jumpButton  = WGUI.app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 17, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ПРЫЖОК"))
+  WGUI.rightPanel.actionBoxPanel.hyperButton = WGUI.app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 20, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ГИПЕР"))
+  WGUI.rightPanel.actionBoxPanel.cloatTitle  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 24, colors.white, "Маскировка: "))
+  WGUI.rightPanel.actionBoxPanel.cloakBox    = WGUI.app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 23, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
+  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Откл.")
+  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Ур. 1")
+  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Ур. 2")
+  --Группа информации на правой панели
+  WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
+  WGUI.rightPanel.infoBoxPanel.titleText   = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
+  WGUI.rightPanel.infoBoxPanel.coordsTitle = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
+  WGUI.rightPanel.infoBoxPanel.xCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 124"))
+  WGUI.rightPanel.infoBoxPanel.yCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 76"))
+  WGUI.rightPanel.infoBoxPanel.zCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: -96"))
+  WGUI.rightPanel.infoBoxPanel.dirText     = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: Север"))
   
   -- окно НАВ режима
-  
   WGUI.navWindow = WGUI.app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
   -- Панель со списком точек
   WGUI.navWindow.pointsBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(1, 1, 30, 49, colors.black, colors.white))
@@ -272,10 +317,47 @@ function WGUI.Init()
   -- Панель карты
   WGUI.navWindow.mapBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(31, 1, 100, 49, colors.black, colors.white))
   WGUI.navWindow.mapBorder.titleText = WGUI.navWindow:addChild(GUI.text(32, 1, colors.white, "Карта:"))
-
-  --table.insert(WGUI.refreshMethods, WGUI.UpdateChargeBar)
+  WGUI.navWindow.mapBorder.addPointButton = WGUI.navWindow:addChild(GUI.adaptiveButton(8,49,1,0,colors.greenButton,colors.white,colors.greenDark, colors.white, "НОВАЯ ТОЧКА"))
+  WGUI.navWindow.mapBorder.addPointButton.onTouch = WGUI.AddNewPointDialog
+  -- Кнопки управления масштабом карты
+  WGUI.navWindow.navMaxScaleButton   = WGUI.navWindow:addChild(GUI.adaptiveButton(103,49,1,0,0xCC4C4C, colors.black,0xCC4C4C, colors.black, "МАКС"))
+  WGUI.navWindow.navResetScaleButton = WGUI.navWindow:addChild(GUI.adaptiveButton(109,49,1,0,0xFFF400, colors.black,0xFFF400, colors.black, "СБРОС"))
+  WGUI.navWindow.navScaleLessButton  = WGUI.navWindow:addChild(GUI.adaptiveButton(116,49,1,0,0xCC4C4C, colors.white,0xCC4C4C, colors.white, "МШТБ-"))
+  WGUI.navWindow.navScaleMoreButton  = WGUI.navWindow:addChild(GUI.adaptiveButton(123,49,1,0,0x57A64E, colors.white,0x57A64E, colors.white, "МШТБ+"))
+  
+  WGUI.navWindow.navMaxScaleButton.onTouch   = function() programSettings.navScaleX = 500  programSettings.navScaleY = 1000 WGUI.Refresh() end
+  WGUI.navWindow.navResetScaleButton.onTouch = function() programSettings.navScaleX = 8    programSettings.navScaleY = 16   WGUI.Refresh() end
+  WGUI.navWindow.navScaleMoreButton.onTouch  = function() programSettings.navScaleX = wmUtils.Clamp(programSettings.navScaleX - 2, 1,500) programSettings.navScaleY = wmUtils.Clamp(programSettings.navScaleY - 4,2,1000) WGUI.Refresh() end
+  WGUI.navWindow.navScaleLessButton.onTouch  = function() programSettings.navScaleX = wmUtils.Clamp(programSettings.navScaleX + 2, 1,500) programSettings.navScaleY = wmUtils.Clamp(programSettings.navScaleY + 4,2,1000) WGUI.Refresh() end
+  
+  -- Кнопки выбора режима карты (тип местности)
+  WGUI.navWindow.worldTypeSelector = WGUI.navWindow:addChild(GUI.list(39,1,45,1,9,0,colors.redButton, colors.white, colors.redButton, colors.white, colors.greenButton, colors.white))
+  WGUI.navWindow.worldTypeSelector:setDirection(GUI.DIRECTION_HORIZONTAL)
+  local mapTypeIndex = 1
+  for k,v in pairs(worldTypes) do
+    local button = WGUI.navWindow.worldTypeSelector:addItem(unicode.upper(v))
+    button.onTouch =  function()  WGUI.SelectNavMapWorldType(k) end
+    if programSettings.currentWorldType == k then
+      WGUI.navWindow.worldTypeSelector.selectedItem = mapTypeIndex
+    end
+    mapTypeIndex = mapTypeIndex + 1
+  end
+  
 end
 
+function WGUI.SelectNavMapWorldType(worldType)
+  programSettings.currentWorldType = worldType
+  WGUI.Refresh()
+end
+
+function WGUI.SelectGUIMode(mode)
+  programSettings.currentGUIMode = mode
+  WGUI.Refresh()
+end
+
+function WGUI.AddNewPointDialog()
+  
+end
 
 function WGUI.Refresh()
   for k,v in ipairs(WGUI.refreshMethods) do
@@ -297,7 +379,6 @@ function WGUI.Terminate()
   softLogic.Quit()
   WGUI.app:stop()
 end
-
 
 local function WarpSoftInit()
 	warpdrive.SetCoreMovement(0,0,0) 
