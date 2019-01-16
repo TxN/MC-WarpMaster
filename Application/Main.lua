@@ -311,7 +311,7 @@ function WGUI.Init() -- основной метод, где задаются в�
   WGUI.rightPanel.infoBoxPanel.yCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
   WGUI.rightPanel.infoBoxPanel.zCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: 0"))
   WGUI.rightPanel.infoBoxPanel.dirText     = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: НЕТ ДАННЫХ"))
-  WGUI.rightPanel.infoBoxPanel.update      = WGUI.UpdateShipInfoPanel -- !! Не работает!
+  WGUI.rightPanel.infoBoxPanel.titleText.update = WGUI.UpdateShipInfoPanel
   
   -- окно НАВ режима
   WGUI.navWindow = WGUI.app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
@@ -327,18 +327,20 @@ function WGUI.Init() -- основной метод, где задаются в�
   WGUI.navWindow.mapBorder.addPointButton = WGUI.navWindow:addChild(GUI.adaptiveButton(8,49,1,0,colors.greenButton,colors.white,colors.greenDark, colors.white, "НОВАЯ ТОЧКА"))
   WGUI.navWindow.mapBorder.addPointButton.onTouch = WGUI.AddNewPointDialog
   -- Область отрисовки карты
-  WGUI.navWindow.mapView = WGUI.navWindow:addChild(GUI.container(2, 2, 98, 46))
+  WGUI.navWindow.mapView = WGUI.navWindow:addChild(GUI.container(32, 2, 98, 46))
   WGUI.navWindow.isDirty = true
-  WGUI.navWindow.mapView.update = WGUI.UpdateMapView
-  WGUI.navWindow.mapView.jumpBorder = WGUI.navWindow.mapView:addChild(WGUI.BorderPanel(2, 2, 2, 2, colors.black, 0xff0000))  
-  WGUI.navWindow.mapView.shipSymbol = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.white, "^"))
-  WGUI.navWindow.mapView.warpDestPoint = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.greenDark, "X"))
-  WGUI.navWindow.mapView.autoDestPoint = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.greenDark, "A"))
-  WGUI.navWindow.mapView.autoDestPoint.hidden = true
-  WGUI.navWindow.mapView.navPoints  = {} -- временный список отрисованных навигационных точек.
+  local mapView =  WGUI.navWindow.mapView
+  mapView.jumpBorder = mapView:addChild(GUI.panel(32, 15, 1, 1, colors.gray))  
+  mapView.shipSymbol = mapView:addChild(GUI.text(49, 23, colors.white, "^"))
+  mapView.warpDestPoint = mapView:addChild(GUI.text(49, 23, colors.greenDark, "X"))
+  mapView.autoDestPoint = mapView:addChild(GUI.text(49, 23, colors.greenDark, "A"))
+  mapView.autoDestPoint.hidden = true
+  mapView.navPoints  = {} -- временный список отрисованных навигационных точек.
+  
+  WGUI.navWindow.xScaleText = WGUI.navWindow:addChild(GUI.text(34, 48, colors.white, "Масштаб по X: 8 м/пиксель"))
+  WGUI.navWindow.yScaleText = WGUI.navWindow:addChild(GUI.text(64, 48, colors.white, "Масштаб по Y: 16 м/пиксель"))
   -- Контекстное меню карты
   WGUI.navWindow.mapView.eventHandler = WGUI.NavViewEventHandler
-  
   -- Кнопки управления масштабом карты
   WGUI.navWindow.navMaxScaleButton   = WGUI.navWindow:addChild(GUI.adaptiveButton(103,49,1,0,0xCC4C4C, colors.black,0xCC4C4C, colors.black, "МАКС"))
   WGUI.navWindow.navResetScaleButton = WGUI.navWindow:addChild(GUI.adaptiveButton(109,49,1,0,0xFFF400, colors.black,0xFFF400, colors.black, "СБРОС"))
@@ -400,17 +402,19 @@ function WGUI.UpdateShipInfoPanel()
   local ox,oy,oz = warpdrive.GetShipOrientation()
   local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
   WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  X: ".. x
-  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  Y: ".. y
-  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  Z: ".. z
+  WGUI.rightPanel.infoBoxPanel.yCoordText.text = "  Y: ".. y
+  WGUI.rightPanel.infoBoxPanel.zCoordText.text = "  Z: ".. z
   WGUI.rightPanel.infoBoxPanel.dirText.text    = "Направление: " .. orientationConverted
 end
 
 function WGUI.UpdateMapView() 
-  if WGUI.navWindow.isDirty == false then
+  if WGUI.navWindow.isDirty == nil then -- TODO: нормальный флаг обновления
     return
   end
   WGUI.navWindow.isDirty = false
   
+  local scalex = programSettings.navScaleX -- блоков на знакоместо по x
+	local scaley = programSettings.navScaleY -- аналогично по y
   local x,y,z = warpdrive.GetShipPosition()
 	local ox, oy, oz = warpdrive.GetShipOrientation()
 	local warpD = warpdrive.CalcDestinationPoint()
@@ -432,14 +436,14 @@ function WGUI.UpdateMapView()
  
   local mindx, mindy,mindz = shipInfo.length + 1, shipInfo.height + 1, shipInfo.width + 1
   local maxBound = warpdrive.maxJumpLength()
-	local jRectX = wmUtils.Clamp( 49 - (maxBound + mindz)/scalex,1,98)
-	local jRectY = wmUtils.Clamp( 23 - (maxBound + mindx)/scaley,1,46)
+	local jRectX = wmUtils.Clamp( 49 - ((maxBound + mindz)/scalex),1,98)
+	local jRectY = wmUtils.Clamp( 23 - ((maxBound + mindx)/scaley),1,46)
   
   local border = WGUI.navWindow.mapView.jumpBorder
-  border.localX = jRectX
-  border.localY = jRectY
-  border.width  = wmUtils.Clamp(( (maxBound + mindz)*2)/scalex,0,98)
-  border.height = wmUtils.Clamp(( (maxBound + mindx)*2)/scaley,0,45)
+  border.localX = wmUtils.round( jRectX )
+  border.localY = wmUtils.round( jRectY )
+  border.width  = wmUtils.round(wmUtils.Clamp(( (maxBound + mindz)*2)/scalex,0,98))
+  border.height = wmUtils.round(wmUtils.Clamp(( (maxBound + mindx)*2)/scaley,0,45))
   
 	local function GetWorldPointNavCoords(tx,ty,tz)
 		local dx = tx - x
@@ -459,8 +463,8 @@ function WGUI.UpdateMapView()
 			dspX = dx
 			dspY = dz
 		end
-		dspX = tools.Clamp(49 + math.floor(dspX/scalex), 1,98)
-		dspY = tools.Clamp(23 + math.floor(dspY/scaley),1, 46)
+		dspX = wmUtils.Clamp(49 + math.floor(dspX/scalex), 1,98)
+		dspY = wmUtils.Clamp(23 + math.floor(dspY/scaley),1, 46)
 		return dspX,dspY
 	end
     
@@ -507,6 +511,10 @@ function WGUI.UpdateMapView()
     WGUI.navWindow.mapView.autoDestPoint.hidden = true
   end
   
+  WGUI.navWindow.xScaleText.text = "Масштаб по X: ".. scalex.." м/пиксель"
+  WGUI.navWindow.yScaleText.text = "Масштаб по Y: "..scaley.. " м/пиксель"
+  
+ -- border:moveToFront()
   WGUI.navWindow.mapView.shipSymbol:moveToFront()
   
   WGUI.UpdateNavPointList() 
@@ -579,6 +587,7 @@ filesystem.setAutorunEnabled(false)
 softLogic.Load()
 c.gpu.setResolution(WGUI.screenWidth, WGUI.screenHeight)
 WGUI.Init()
+WGUI.UpdateMapView() -- TODO: нормальное обновление навигации
 WGUI.Refresh()
 
 if not warpdrive.CheckCore() then
