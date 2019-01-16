@@ -100,4 +100,21 @@ function utils.HasInternet()
 	return c.isAvailable("internet")
 end
 
+function utils.DirVectorToCompass(x,z)
+  if x > 0 then
+    return "east"
+  end
+  if x < 0 then
+    return "west"
+  end
+  
+  if z > 0 then
+    return "south"
+  end
+  
+  if z < 0 then 
+    return "north"
+  end
+  return "none"
+end
 return utils

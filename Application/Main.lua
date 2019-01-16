@@ -109,7 +109,9 @@ WGUI.screenWidth  = 160
 WGUI.screenHeight = 50
 
 --	{"NavPoint1","earth", 140,80,-200},
-local navPoints = {}
+local navPoints = {
+  {"NavPoint1","earth", 140,80,-200}
+  }
 
 -- Формат описания навигационных точек:
 -- point = {
@@ -118,6 +120,7 @@ local navPoints = {}
 	-- navIndex = 1,
 	-- ex = 2
 -- }
+
 local displayedNavPoints = {}
 
 --Данные об областях перехода на планеты
@@ -304,21 +307,38 @@ function WGUI.Init() -- основной метод, где задаются в�
   WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
   WGUI.rightPanel.infoBoxPanel.titleText   = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
   WGUI.rightPanel.infoBoxPanel.coordsTitle = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
-  WGUI.rightPanel.infoBoxPanel.xCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 124"))
-  WGUI.rightPanel.infoBoxPanel.yCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 76"))
-  WGUI.rightPanel.infoBoxPanel.zCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: -96"))
-  WGUI.rightPanel.infoBoxPanel.dirText     = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: Север"))
+  WGUI.rightPanel.infoBoxPanel.xCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 0"))
+  WGUI.rightPanel.infoBoxPanel.yCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
+  WGUI.rightPanel.infoBoxPanel.zCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: 0"))
+  WGUI.rightPanel.infoBoxPanel.dirText     = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: НЕТ ДАННЫХ"))
+  WGUI.rightPanel.infoBoxPanel.update      = WGUI.UpdateShipInfoPanel -- !! Не работает!
   
   -- окно НАВ режима
   WGUI.navWindow = WGUI.app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
   -- Панель со списком точек
   WGUI.navWindow.pointsBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(1, 1, 30, 49, colors.black, colors.white))
   WGUI.navWindow.pointsBorder.titleText = WGUI.navWindow:addChild(GUI.text(2, 1, colors.white, "Навигационные точки:"))
+  -- Список точек
+  WGUI.navWindow.pointsBorder.listBox = WGUI.navWindow:addChild(GUI.textBox(2, 2, 28, 48, nil, colors.white, {}, 1, 0, 0, false, false))
+  WGUI.navWindow.pointsBorder.listBox.scrollBarEnabled = true
   -- Панель карты
   WGUI.navWindow.mapBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(31, 1, 100, 49, colors.black, colors.white))
   WGUI.navWindow.mapBorder.titleText = WGUI.navWindow:addChild(GUI.text(32, 1, colors.white, "Карта:"))
   WGUI.navWindow.mapBorder.addPointButton = WGUI.navWindow:addChild(GUI.adaptiveButton(8,49,1,0,colors.greenButton,colors.white,colors.greenDark, colors.white, "НОВАЯ ТОЧКА"))
   WGUI.navWindow.mapBorder.addPointButton.onTouch = WGUI.AddNewPointDialog
+  -- Область отрисовки карты
+  WGUI.navWindow.mapView = WGUI.navWindow:addChild(GUI.container(2, 2, 98, 46))
+  WGUI.navWindow.isDirty = true
+  WGUI.navWindow.mapView.update = WGUI.UpdateMapView
+  WGUI.navWindow.mapView.jumpBorder = WGUI.navWindow.mapView:addChild(WGUI.BorderPanel(2, 2, 2, 2, colors.black, 0xff0000))  
+  WGUI.navWindow.mapView.shipSymbol = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.white, "^"))
+  WGUI.navWindow.mapView.warpDestPoint = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.greenDark, "X"))
+  WGUI.navWindow.mapView.autoDestPoint = WGUI.navWindow.mapView:addChild(GUI.text(49, 23, colors.greenDark, "A"))
+  WGUI.navWindow.mapView.autoDestPoint.hidden = true
+  WGUI.navWindow.mapView.navPoints  = {} -- временный список отрисованных навигационных точек.
+  -- Контекстное меню карты
+  WGUI.navWindow.mapView.eventHandler = WGUI.NavViewEventHandler
+  
   -- Кнопки управления масштабом карты
   WGUI.navWindow.navMaxScaleButton   = WGUI.navWindow:addChild(GUI.adaptiveButton(103,49,1,0,0xCC4C4C, colors.black,0xCC4C4C, colors.black, "МАКС"))
   WGUI.navWindow.navResetScaleButton = WGUI.navWindow:addChild(GUI.adaptiveButton(109,49,1,0,0xFFF400, colors.black,0xFFF400, colors.black, "СБРОС"))
@@ -375,6 +395,160 @@ function WGUI.UpdateChargeBar()
   WGUI.chargeBarPanel.width = barWidth
 end
 
+function WGUI.UpdateShipInfoPanel()
+  local x,y,z    = warpdrive.GetShipPosition()
+  local ox,oy,oz = warpdrive.GetShipOrientation()
+  local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
+  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  X: ".. x
+  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  Y: ".. y
+  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  Z: ".. z
+  WGUI.rightPanel.infoBoxPanel.dirText.text    = "Направление: " .. orientationConverted
+end
+
+function WGUI.UpdateMapView() 
+  if WGUI.navWindow.isDirty == false then
+    return
+  end
+  WGUI.navWindow.isDirty = false
+  
+  local x,y,z = warpdrive.GetShipPosition()
+	local ox, oy, oz = warpdrive.GetShipOrientation()
+	local warpD = warpdrive.CalcDestinationPoint()
+  
+  local offsetX, offsetY = 0,0 -- TODO:Заготовка под возможность скроллить карту
+  
+  local maxZ = z + 49 * scalex
+	local maxX = x + 23 * scaley
+	local minZ = z - 49 * scalex
+	local minX = x - 23*  scaley
+  
+  local function CheckNavPointRange(navPoint)
+		if programSettings.currentWorldType == navPoint[2] then
+			return true
+		else 
+			return false
+		end
+	end
+ 
+  local mindx, mindy,mindz = shipInfo.length + 1, shipInfo.height + 1, shipInfo.width + 1
+  local maxBound = warpdrive.maxJumpLength()
+	local jRectX = wmUtils.Clamp( 49 - (maxBound + mindz)/scalex,1,98)
+	local jRectY = wmUtils.Clamp( 23 - (maxBound + mindx)/scaley,1,46)
+  
+  local border = WGUI.navWindow.mapView.jumpBorder
+  border.localX = jRectX
+  border.localY = jRectY
+  border.width  = wmUtils.Clamp(( (maxBound + mindz)*2)/scalex,0,98)
+  border.height = wmUtils.Clamp(( (maxBound + mindx)*2)/scaley,0,45)
+  
+	local function GetWorldPointNavCoords(tx,ty,tz)
+		local dx = tx - x
+		local dz = tz - z
+		local dspX = 0
+		local dspY = 0
+		if ox == 1 then
+			dspX = dz
+			dspY = -dx
+		elseif ox == -1 then
+			dspX = -dz
+			dspY = dx
+		elseif oz == 1 then
+			dspX = -dx
+			dspY = -dz
+		elseif oz == -1 then
+			dspX = dx
+			dspY = dz
+		end
+		dspX = tools.Clamp(49 + math.floor(dspX/scalex), 1,98)
+		dspY = tools.Clamp(23 + math.floor(dspY/scaley),1, 46)
+		return dspX,dspY
+	end
+    
+  for k,v in ipairs(WGUI.navWindow.mapView.navPoints) do
+    if v.mapElement  ~= nil then
+      v.mapElement:remove()
+    end
+    if v.listElement ~= nil then
+      v.listElement:remove()
+    end
+    v.info = nil
+  end
+  WGUI.navWindow.mapView.navPoints = {}
+  
+  local pointIndex = 0
+  local displayedNavPoints = WGUI.navWindow.mapView.navPoints
+  
+  for i=1,#navPoints do
+		if CheckNavPointRange(navPoints[i]) == true then
+			pointIndex = pointIndex + 1
+			local pointInfo = {}
+			pointInfo.navIndex = i
+			pointInfo.mapName = tostring(pointIndex)
+			pointInfo.listName = pointIndex.." "..navPoints[i][1]
+			local dx,dy = GetWorldPointNavCoords(navPoints[i][3],navPoints[i][4],navPoints[i][5])
+			pointInfo.ex = string.len(pointInfo.mapName) - 1
+      local point = {}
+			displayedNavPoints[pointIndex] = point
+      point.info = pointInfo
+      point.mapElement = WGUI.navWindow.mapView:addChild(GUI.text(dx, dy, colors.white, pointIndex)) --TODO: раскрашивать точки по типам.
+		end
+	end
+  
+  local wtx,wty = GetWorldPointNavCoords(warpD.x,warpD.y,warpD.z)
+  WGUI.navWindow.mapView.warpDestPoint.localX = wtx
+  WGUI.navWindow.mapView.warpDestPoint.localY = wty
+  
+	if autopilot.point ~= nil then 
+		local atx,aty = GetWorldPointNavCoords(autopilot.point[3],autopilot.point[4],autopilot.point[5])
+    WGUI.navWindow.mapView.autoDestPoint.localX = atx
+    WGUI.navWindow.mapView.autoDestPoint.localY = aty
+    WGUI.navWindow.mapView.autoDestPoint.hidden = false
+	else
+    WGUI.navWindow.mapView.autoDestPoint.hidden = true
+  end
+  
+  WGUI.navWindow.mapView.shipSymbol:moveToFront()
+  
+  WGUI.UpdateNavPointList() 
+end
+
+function WGUI.UpdateNavPointList() 
+  WGUI.navWindow.pointsBorder.listBox.lines = {}
+  for k,v in ipairs(WGUI.navWindow.mapView.navPoints) do
+    table.insert(WGUI.navWindow.pointsBorder.listBox.lines, {v.info.listName, colors.white})
+  end
+end
+
+function WGUI.NavViewEventHandler(container, object, e1, e2, e3, e4)
+  if e1 ~= "touch" then
+    return
+  end
+  local contextMenu = GUI.addContextMenu(container, e3, e4)
+  local newPoint    = contextMenu:addItem("Добавить точку")
+  local removePoint = contextMenu:addItem("Удалить точку")
+  local pointInfo   = contextMenu:addItem("Инфо о точке")
+  local setAsTarget = contextMenu:addItem("Задать как цель")
+  
+  container:draw()
+end
+
+function WGUI.ConvertRawOrientation(ox,oz)
+  local orientationRaw = wmUtils.DirVectorToCompass(ox,oz)
+  if orientationRaw == "west" then
+    return "Запад"
+  end
+  if orientationRaw == "east" then
+    return "Восток"
+  end
+  if orientationRaw == "south" then
+    return "Юг"
+  end
+  if orientationRaw == "north" then
+    return "Север"
+  end
+  return "НЕТ ДАННЫХ"
+end
+
 function WGUI.Terminate()
   softLogic.Quit()
   WGUI.app:stop()
@@ -396,7 +570,7 @@ local function WarpSoftInit()
 end
 
 local function HandleInput(event)
-  
+
 end
 
 

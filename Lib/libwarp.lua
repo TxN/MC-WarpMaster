@@ -285,11 +285,31 @@ function libwarp.GetAttachedPlayers()
 end
 
 function libwarp.GetShipOrientation()
-	return component.warpdriveShipController.getOrientation()
+  local ox,oy,oz = component.warpdriveShipController.getOrientation()
+  if ox == nil then
+    ox = 0
+  end
+  if oy == nil then
+    oy = 0
+  end
+  if oz == nil then
+    oz = 0
+  end
+	return ox,oy,oz
 end 
 
 function libwarp.GetShipPosition()
-	return component.warpdriveShipController.position()
+  local px,py,pz = component.warpdriveShipController.position()
+  if px == nil then 
+    px = 0
+  end
+  if py == nil then 
+    py = 0
+  end
+  if pz == nil then 
+    pz = 0
+  end
+  return px,py,pz
 end
 
 function libwarp.MakePreFlightCheck()
