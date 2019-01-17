@@ -104,14 +104,11 @@ local tools     = {}
 local softLogic = {}
 local shipLogic = {}
 
-WGUI.refreshMethods = {}
 WGUI.screenWidth  = 160
 WGUI.screenHeight = 50
 
---	{"NavPoint1","earth", 140,80,-200},
-local navPoints = {
-  {"NavPoint1","earth", 140,80,-200}
-  }
+--	{"NavPoint1","earth", 140,80,-200, "POI","Secret base"},
+local navPoints = {  }
 
 -- Формат описания навигационных точек:
 -- point = {
@@ -120,6 +117,14 @@ local navPoints = {
 	-- navIndex = 1,
 	-- ex = 2
 -- }
+
+local navPointAppearance = {
+    DEF = {color = colors.white, short = "НЗВ", long = "Неизвестно"},
+    NAV = {color = colors.white, short = "НАВ", long = "Навигационная точка"},
+    POI = {color = 0x0065FF, short = "ИНТ", long = "Точка интереса"},
+    SHP = {color = 0xFF4900, short = "КОР", long = "Корабль"},
+    RES = {color = 0xCC9240, short = "РЕС", long = "Ресурсы"},
+  }
 
 local displayedNavPoints = {}
 
@@ -265,10 +270,11 @@ end
 
 function WGUI.Init() -- основной метод, где задаются все основные элементы интерфейса
   WGUI.app = GUI.application(1, 1, WGUI.screenWidth, WGUI.screenHeight)
+  local app = WGUI.app 
   -- основное окно
-  WGUI.mainWindow = WGUI.app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster", true))
+  WGUI.mainWindow = app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster 2.0", true))
   WGUI.mainWindow.eventHandler = nil -- нам не нужна поддержка перетаскивания окна, оно должно быть всегда в одном положении.
-  WGUI.mainWindow.titleLabel.textColor = colors.white
+  WGUI.mainWindow.titleLabel.colors.text = colors.white
   local actionButtons = WGUI.mainWindow.actionButtons
   actionButtons.close.onTouch = WGUI.Terminate
   WGUI.mainWindow.backgroundPanel.colors.background = colors.black
@@ -294,27 +300,33 @@ function WGUI.Init() -- основной метод, где задаются в�
     modeTypeIndex = modeTypeIndex + 1
   end
   -- Кнопки прыжка и гипера на правой панели
-  WGUI.rightPanel.actionBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 16, 30, 21, colors.black, colors.white))
-  WGUI.rightPanel.actionBoxPanel.titleText = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 16, colors.white, "ДЕЙСТВИЯ:"))
-  WGUI.rightPanel.actionBoxPanel.jumpButton  = WGUI.app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 17, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ПРЫЖОК"))
-  WGUI.rightPanel.actionBoxPanel.hyperButton = WGUI.app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 20, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ГИПЕР"))
-  WGUI.rightPanel.actionBoxPanel.cloatTitle  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 24, colors.white, "Маскировка: "))
-  WGUI.rightPanel.actionBoxPanel.cloakBox    = WGUI.app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 23, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
-  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Откл.")
-  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Ур. 1")
-  WGUI.rightPanel.actionBoxPanel.cloakBox:addItem("Ур. 2")
+  
+  WGUI.rightPanel.actionBoxPanel = app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 16, 30, 21, colors.black, colors.white))
+  local actBoxPanel = WGUI.rightPanel.actionBoxPanel
+  actBoxPanel.titleText   = app:addChild(GUI.text(WGUI.screenWidth - 28, 16, colors.white, "ДЕЙСТВИЯ:"))
+  actBoxPanel.jumpButton  = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 17, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ПРЫЖОК"))
+  actBoxPanel.hyperButton = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 20, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ГИПЕР"))
+  actBoxPanel.cloatTitle  = app:addChild(GUI.text(WGUI.screenWidth - 27, 24, colors.white, "Маскировка: "))
+  actBoxPanel.cloakBox    = app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 23, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
+  actBoxPanel.cloakBox:addItem("Откл.")
+  actBoxPanel.cloakBox:addItem("Ур. 1")
+  actBoxPanel.cloakBox:addItem("Ур. 2")
   --Группа информации на правой панели
   WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
-  WGUI.rightPanel.infoBoxPanel.titleText   = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
-  WGUI.rightPanel.infoBoxPanel.coordsTitle = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
-  WGUI.rightPanel.infoBoxPanel.xCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 0"))
-  WGUI.rightPanel.infoBoxPanel.yCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
-  WGUI.rightPanel.infoBoxPanel.zCoordText  = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: 0"))
-  WGUI.rightPanel.infoBoxPanel.dirText     = WGUI.app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: НЕТ ДАННЫХ"))
-  WGUI.rightPanel.infoBoxPanel.titleText.update = WGUI.UpdateShipInfoPanel
+  local rightPanel = WGUI.rightPanel.infoBoxPanel
+  rightPanel.titleText   = app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
+  rightPanel.coordsTitle = app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
+  rightPanel.xCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 0"))
+  rightPanel.yCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
+  rightPanel.zCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: 0"))
+  rightPanel.dirText     = app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: НЕТ ДАННЫХ"))
+  rightPanel.aboutText   = app:addChild(GUI.text(WGUI.screenWidth - 20, 50, colors.white, "(c)-TxN-2016-2019"))
+  rightPanel.titleText.update = WGUI.UpdateShipInfoPanel
+  
+  WGUI.InitOptionsWindow(app) -- окно настроек
   
   -- окно НАВ режима
-  WGUI.navWindow = WGUI.app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
+  WGUI.navWindow = app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
   -- Панель со списком точек
   WGUI.navWindow.pointsBorder = WGUI.navWindow:addChild(WGUI.BorderPanel(1, 1, 30, 49, colors.black, colors.white))
   WGUI.navWindow.pointsBorder.titleText = WGUI.navWindow:addChild(GUI.text(2, 1, colors.white, "Навигационные точки:"))
@@ -367,6 +379,12 @@ function WGUI.Init() -- основной метод, где задаются в�
   
 end
 
+function WGUI.InitOptionsWindow(app)
+  WGUI.optionsWindow = app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
+  local opts = WGUI.optionsWindow
+  opts.hidden = true
+end
+
 function WGUI.SelectNavMapWorldType(worldType)
   programSettings.currentWorldType = worldType
   WGUI.Refresh()
@@ -382,8 +400,21 @@ function WGUI.AddNewPointDialog()
 end
 
 function WGUI.Refresh()
-  for k,v in ipairs(WGUI.refreshMethods) do
-    v()
+  
+  --Прячем все активные окошки
+  WGUI.navWindow.hidden = true
+  WGUI.optionsWindow.hidden = true
+  
+  local curMode = programSettings.currentGUIMode
+  if curMode == "NAV" then
+    WGUI.navWindow.hidden = false
+    WGUI.UpdateMapView() 
+  elseif curMode == "OPT" then
+    WGUI.optionsWindow.hidden = false
+  elseif curMode == "UTL" then
+    
+  elseif curMode == "NFO" then
+    
   end
   WGUI.app:draw(true)
 end
@@ -491,10 +522,12 @@ function WGUI.UpdateMapView()
 			pointInfo.listName = pointIndex.." "..navPoints[i][1]
 			local dx,dy = GetWorldPointNavCoords(navPoints[i][3],navPoints[i][4],navPoints[i][5])
 			pointInfo.ex = string.len(pointInfo.mapName) - 1
+      pointInfo.appearance = WGUI.GetParamsForPointType(navPoints[i][6])
       local point = {}
 			displayedNavPoints[pointIndex] = point
       point.info = pointInfo
-      point.mapElement = WGUI.navWindow.mapView:addChild(GUI.text(dx, dy, colors.white, pointIndex)) --TODO: раскрашивать точки по типам.
+      point.mapElement = WGUI.navWindow.mapView:addChild(GUI.text(dx, dy, point.info.appearance.color, pointIndex))
+      WGUI.navWindow.mapView.navPoints[pointIndex] = point
 		end
 	end
   
@@ -511,10 +544,9 @@ function WGUI.UpdateMapView()
     WGUI.navWindow.mapView.autoDestPoint.hidden = true
   end
   
-  WGUI.navWindow.xScaleText.text = "Масштаб по X: ".. scalex.." м/пиксель"
-  WGUI.navWindow.yScaleText.text = "Масштаб по Y: "..scaley.. " м/пиксель"
-  
- -- border:moveToFront()
+  WGUI.navWindow.xScaleText.text = "Масштаб по X: ".. scalex .." м/пиксель"
+  WGUI.navWindow.yScaleText.text = "Масштаб по Y: ".. scaley .. " м/пиксель"
+
   WGUI.navWindow.mapView.shipSymbol:moveToFront()
   
   WGUI.UpdateNavPointList() 
@@ -523,7 +555,7 @@ end
 function WGUI.UpdateNavPointList() 
   WGUI.navWindow.pointsBorder.listBox.lines = {}
   for k,v in ipairs(WGUI.navWindow.mapView.navPoints) do
-    table.insert(WGUI.navWindow.pointsBorder.listBox.lines, {v.info.listName, colors.white})
+    table.insert(WGUI.navWindow.pointsBorder.listBox.lines, {text = v.info.listName, color = v.info.appearance.color})
   end
 end
 
@@ -555,6 +587,14 @@ function WGUI.ConvertRawOrientation(ox,oz)
     return "Север"
   end
   return "НЕТ ДАННЫХ"
+end
+
+function WGUI.GetParamsForPointType(pointType)
+  local result = navPointAppearance[pointType]
+  if result == nil then
+    result = navPointAppearance.DEF
+  end
+  return result
 end
 
 function WGUI.Terminate()
