@@ -306,8 +306,9 @@ function WGUI.Init() -- основной метод, где задаются в�
   actBoxPanel.titleText   = app:addChild(GUI.text(WGUI.screenWidth - 28, 16, colors.white, "ДЕЙСТВИЯ:"))
   actBoxPanel.jumpButton  = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 17, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ПРЫЖОК"))
   actBoxPanel.hyperButton = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 20, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "ГИПЕР"))
-  actBoxPanel.cloatTitle  = app:addChild(GUI.text(WGUI.screenWidth - 27, 24, colors.white, "Маскировка: "))
-  actBoxPanel.cloakBox    = app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 23, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
+  actBoxPanel.scanButton  = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 23, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "СКАНИРОВАТЬ"))
+  actBoxPanel.cloakTitle  = app:addChild(GUI.text(WGUI.screenWidth - 27, 27, colors.white, "Маскировка: "))
+  actBoxPanel.cloakBox    = app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 26, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
   actBoxPanel.cloakBox:addItem("Откл.")
   actBoxPanel.cloakBox:addItem("Ур. 1")
   actBoxPanel.cloakBox:addItem("Ур. 2")
@@ -315,6 +316,7 @@ function WGUI.Init() -- основной метод, где задаются в�
   WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
   local rightPanel = WGUI.rightPanel.infoBoxPanel
   rightPanel.titleText   = app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
+  rightPanel.statusText  = app:addChild(GUI.adaptiveButton(WGUI.screenWidth - 20,36,1,0,0x57A64E, colors.white,0x57A64E, colors.white, "ГОТОВ К ПРЫЖКУ")) -- TODO: обновление статуса кнопки.
   rightPanel.coordsTitle = app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
   rightPanel.xCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 0"))
   rightPanel.yCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
