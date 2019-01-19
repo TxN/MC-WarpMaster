@@ -667,16 +667,15 @@ function WGUI.JumpButtonPush()
 		{"CenterText", 0x262626, "Вы действительно хотите совершить прыжок?"},
 		{"CenterText", 0x262626, "Отменить действие будет невозможно!"},
 		{"CenterText", 0x262626, "Прыжок потребует "..tostring(energyCost).." EU"},
-		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
-		)
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}})
 		if data[1] == okText then
 			warpdrive.Warp(false)
 			warpLockFlag = true
 			for i=1,25 do
 				ecs.square(60,20,45,5,colors.window)
-				ecs.colorText( 32, 21, 0x000000, "Ожидайте...")
-				ecs.colorText( 32, 22, 0x000000, "Прыжок выполняется...")
-				ecs.colorText( 32, 23, 0x000000, "Терминал заблокирован на "..tostring(25-i).." секунд")
+				ecs.colorText( 62, 21, 0x000000, "Ожидайте...")
+				ecs.colorText( 62, 22, 0x000000, "Прыжок выполняется...")
+				ecs.colorText( 62, 23, 0x000000, "Терминал заблокирован на "..tostring(25-i).." секунд")
 				computer.beep(25+15*25,0.5)
 				os.sleep(0.5)
 			end
@@ -853,7 +852,6 @@ function WGUI.NavViewEventHandler(container, object, e1, e2, e3, e4)
   end
   local setAsTarget   = contextMenu:addItem("Задать как цель")
   setAsTarget.onTouch = function() local x,y,z = WGUI.ScreenToShipRelativeCoordinates(e3,e4) WGUI.DrawPrecizeJumpWindow(x,y,z)  end
-  WGUI.rightPanel.infoBoxPanel.aboutText.text = e3 ..":".. e4
   container:draw()
 end
 
