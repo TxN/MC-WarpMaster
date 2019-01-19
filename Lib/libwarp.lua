@@ -7,7 +7,6 @@
 -- Адаптивная загрузка необходимых библиотек и компонентов
 local libraries = {
 	component = "component",
-	term      = "term",
   utils     = "wm_utils"
 }
 
