@@ -45,7 +45,7 @@ function libwarp.Warp(safe)
 	end
 	
 	if (safeFlag == true) then
-     component.warpdriveShipController.direction(libwarp.JumpData.direction)
+     --component.warpdriveShipController.direction(libwarp.JumpData.direction)
      component.warpdriveShipController.enable(true)
 	 return true
 	else 
@@ -172,8 +172,8 @@ function libwarp.SetRotation(rotation)
 	if rotation < 4 then
 		component.warpdriveShipController.rotationSteps(rotation)
 	else
-		local rot = math.floor(rotation / 90 )
-		component.warpdriveShipController.rotationSteps(rot)
+		rotation = math.floor(rotation / 90 )
+		component.warpdriveShipController.rotationSteps(rotation)
 	end	
 end
 
@@ -333,9 +333,7 @@ function libwarp.GetEnergyLevel()
 end
 
 function libwarp.CalcDistanceToPoint(x,y,z, ignoreY)
-	if ignoreY == nil then
-		ignoreY = false
-	end
+  ignoreY = ignoreY or false
 	if y == nil then
 		y = 0
 	end

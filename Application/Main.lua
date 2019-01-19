@@ -230,6 +230,40 @@ function softLogic.Quit()
 	end
 end
 
+function softLogic.GetNearestNavPointIndex(x,y,z, ignoreY)
+	if ignoreY == nil then
+		ignoreY = false
+	end
+	local function GetSquaredDelta(x1,y1,z1,x2,y2,z2) 
+		local dx = x2 - x1
+		local dy = y2 - y1
+		local dz = z2 - z1
+		local mg = dx*dx + dy*dy + dz*dz
+		return mg
+	end
+	
+	if navPoints[1] == nil then
+		return
+	end
+	local nearest = 1
+	local minDist = GetSquaredDelta(navPoints[1][3],navPoints[1][4],navPoints[1][5],x,y,z)
+	
+	for i=1,#navPoints do
+		dst = 0
+		if ignoreY == true then
+			dst = GetSquaredDelta(navPoints[i][3],0,navPoints[i][5],x,0,z)
+		else
+			dst = GetSquaredDelta(navPoints[i][3],navPoints[i][4],navPoints[i][5],x,y,z)
+		end
+		
+		if dst < minDist then
+			nearest = i
+			minDist = dst
+		end
+	end
+	return nearest	
+end
+
 function shipLogic.GetCoreCharge() 
   local chargePercent = 0
 	local energyLevel, maxEnergy = 0,1
@@ -329,6 +363,8 @@ function WGUI.Init() -- основной метод, где задаются в�
   actBoxPanel.cloakBox:addItem("Откл.")
   actBoxPanel.cloakBox:addItem("Ур. 1")
   actBoxPanel.cloakBox:addItem("Ур. 2")
+  
+  actBoxPanel.jumpButton.onTouch = WGUI.JumpButtonPush
   --Группа информации на правой панели
   WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
   local rightPanel = WGUI.rightPanel.infoBoxPanel
@@ -421,7 +457,7 @@ function WGUI.SelectPointFromList(index)
   if point == nil then
     return
   end
-  WGUI.rightPanel.infoBoxPanel.aboutText.text = point.info.listName
+  WGUI.DrawViewPointInfoDialog(point.info.navIndex)
   WGUI.Refresh()
 end
 
@@ -526,25 +562,148 @@ function WGUI.DrawPrecizeJumpWindow(x,y,z)
   WGUI.Refresh()
 end
 
-
-function WGUI.UpdateChargeBar() 
-  local chargePercent, energyLevel, maxEnergy = shipLogic.GetCoreCharge()
-  local maxBarWidth = 20
-  local barWidth = math.ceil( (chargePercent * maxBarWidth) / 100)
-  WGUI.chargeBarEnergyLevel.text = chargePercent.."% ("..energyLevel..")"
-  WGUI.chargeBarEnergyLevel.localX = WGUI.screenWidth - 16
-  WGUI.chargeBarPanel.width = barWidth
+function WGUI.DrawRemoveNavPointDialog(pointIndex)
+	local point = navPoints[pointIndex]
+	if point == nil then
+		return
+	end
+	local okText = "Да"
+	local cancelText = "Нет"
+	local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"CenterText", 0x262626, "Вы действительно хотите удалить точку ".. point[1].."?"},
+	{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	if data[1] == okText then
+		table.remove(navPoints, pointIndex)
+	end
+  WGUI.Refresh()
 end
 
-function WGUI.UpdateShipInfoPanel()
-  local x,y,z    = warpdrive.GetShipPosition()
-  local ox,oy,oz = warpdrive.GetShipOrientation()
-  local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
-  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  X: ".. x
-  WGUI.rightPanel.infoBoxPanel.yCoordText.text = "  Y: ".. y
-  WGUI.rightPanel.infoBoxPanel.zCoordText.text = "  Z: ".. z
-  WGUI.rightPanel.infoBoxPanel.dirText.text    = "Направление: " .. orientationConverted
+function WGUI.DrawViewPointInfoDialog(pointIndex)
+	local point = navPoints[pointIndex]
+	if point == nil then
+		return
+	end
+  local typeInfo      = WGUI.GetParamsForPointType(point[6])
+	local dist          = warpdrive.CalcDistanceToPoint(point[3],point[4],point[5])
+	local okText        = "OK"
+	local setText       = "Прыжок к точке"
+	local autopilotText = "Автопилот"
+	local removeText    = "Удалить"
+	local editText      = "Редактировать"
+	local data = ecs.universalWindow("auto", "auto", 40, colors.window, true,
+	{"CenterText", 0x262626, "Информация о путевой точке: ".. point[1]},
+	{"CenterText", 0x262626, "X: ".. point[3]},
+	{"CenterText", 0x262626, "Y: ".. point[4]},
+	{"CenterText", 0x262626, "Z: ".. point[5]},
+	{"CenterText", 0x262626, "Пространство: ".. worldTypes[point[2]]},
+  {"CenterText", typeInfo.color, "Тип: ".. typeInfo.long},
+	{"CenterText", 0x262626, "Расстояние до точки: "..dist.."м."},
+	{"Button", {0x57A64E, 0xffffff, editText},{0x57A64E, 0xffffff, setText},{0x57A64E, 0xffffff, autopilotText},{0xCC4C4C, 0xffffff, removeText}},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)
+	
+	if data[1] == setText then
+		local x,y,z = WGUI.WorldToShipRelativeCoordinates(point[3],point[4],point[5])
+		local mindx, mindy,mindz = shipInfo.length+2, shipInfo.height+2, shipInfo.width+2
+		local bound = warpdrive.maxJumpLength()
+		x = wmUtils.ClampMagnitude(x,mindx,bound + mindx)
+		y = wmUtils.ClampMagnitude(y,mindy,bound + mindy)
+		z = wmUtils.ClampMagnitude(z,mindz,bound + mindz)
+		WGUI.DrawPrecizeJumpWindow(x,y,z)
+	elseif data[1] == autopilotText then
+		autopilot.SetTarget(point)
+		autopilot.Start()
+	elseif data[1] == removeText then
+		WGUI.DrawRemoveNavPointDialog(pointIndex)
+	elseif data[1] == editText then
+		WGUI.DrawEditPointDialog(point)
+	end
+  WGUI.Refresh()
 end
+
+function WGUI.DrawEditPointDialog(point)
+	local okText = "ОК"
+	local cancelText = "Отмена"
+	local curPlaceText = "Тек. положение"
+	
+	if point == null then
+		return
+	end
+	
+	local x,y,z = point[3],point[4],point[5]
+	
+	local data = ecs.universalWindow("auto", "auto", 40, colors.window, true,
+	{"CenterText", 0x262626, "Редактировать путевую точку "..point[1]},
+	{"Input", 0x262626, colors.text, point[1]},
+	{"CenterText", 0x262626, "X:"},
+	{"Input", 0x262626, colors.text, tostring(x)},
+	{"CenterText", 0x262626, "Y:"},
+	{"Input", 0x262626, colors.text, tostring(y)},
+	{"CenterText", 0x262626, "Z:"},
+	{"Input", 0x262626, colors.text, tostring(z)},
+	{"CenterText", 0x262626, "Пространство:"},
+	{"Selector", 0x262626, 0x880000, point[2], "space", "hyper", "planet"},
+	{"EmptyLine"},
+	{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xfff400, curPlaceText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	
+	if data[6] == okText then
+		point[1],point[2],point[3],point[4],point[5] = data[1],data[5],tonumber(data[2]),tonumber(data[3]),tonumber(data[4])
+	elseif data[6] == curPlaceText then
+		point[1],point[2] =  data[1],data[5]
+		point[3],point[4],point[5] = warpdrive.GetShipPosition()
+	end	
+end
+
+function WGUI.JumpButtonPush()
+	local function JumpQuestion()
+		local okText     = "Да"	
+		local cancelText = "Нет"		
+		local jumpDistance = warpdrive.CalcJumpDistance()
+		local energyCost   = warpdrive.GetJumpEnergyCost()
+		
+		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+		{"CenterText", 0x262626, "Вы действительно хотите совершить прыжок?"},
+		{"CenterText", 0x262626, "Отменить действие будет невозможно!"},
+		{"CenterText", 0x262626, "Прыжок потребует "..tostring(energyCost).." EU"},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+		)
+		if data[1] == okText then
+			warpdrive.Warp(false)
+			warpLockFlag = true
+			for i=1,25 do
+				ecs.square(60,20,45,5,colors.window)
+				ecs.colorText( 32, 21, 0x000000, "Ожидайте...")
+				ecs.colorText( 32, 22, 0x000000, "Прыжок выполняется...")
+				ecs.colorText( 32, 23, 0x000000, "Терминал заблокирован на "..tostring(25-i).." секунд")
+				computer.beep(25+15*25,0.5)
+				os.sleep(0.5)
+			end
+
+			local x,y,z = warpdrive.GetShipPosition()	
+      WGUI.Refresh()
+		end
+	end
+
+	if warpdrive.MakePreFlightCheck() == false then
+		local okText     = "Продолжить"	
+		local cancelText = "Отмена"	
+		local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+		{"CenterText", 0x262626, "Внимание!"},
+		{"CenterText", 0x262626, "Самотестирование завершилось с ошибкой!"},
+		{"CenterText", 0x262626, "Прыжок может быть небезопасен!"},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+		)
+		
+		if data[1] == okText then
+			JumpQuestion()
+		end		
+	else
+		JumpQuestion()
+	end
+end
+
 
 function WGUI.UpdateMapView() 
   if WGUI.navWindow.isDirty == nil then -- TODO: нормальный флаг обновления
@@ -671,15 +830,50 @@ function WGUI.NavViewEventHandler(container, object, e1, e2, e3, e4)
   if e1 ~= "touch" then
     return
   end
-  local contextMenu = GUI.addContextMenu(container, e3, e4)
-  local newPoint    = contextMenu:addItem("Добавить точку")
-  newPoint.onTouch = function() local x,y,z = WGUI.ScreenToWorldCoordinates(e3,e4) WGUI.AddNewPointDialog(x,y,z) end
-  local removePoint = contextMenu:addItem("Удалить точку")
-  local pointInfo   = contextMenu:addItem("Инфо о точке")
-  local setAsTarget = contextMenu:addItem("Задать как цель")
+  local contextMenu   = GUI.addContextMenu(container, e3, e4)
+  local newPoint      = contextMenu:addItem("Добавить точку")
+  newPoint.onTouch    = function() local x,y,z = WGUI.ScreenToWorldCoordinates(e3,e4) WGUI.AddNewPointDialog(x,y,z) end
+  local removePoint   = contextMenu:addItem("Удалить точку")
+  removePoint.onTouch = function() 
+    local x,y,z      = WGUI.ScreenToWorldCoordinates(e3,e4)
+		local pointIndex = softLogic.GetNearestNavPointIndex(x,y,z, true)
+		local foundPoint = navPoints[pointIndex]
+		if foundPoint ~= nil then
+			WGUI.DrawRemoveNavPointDialog(pointIndex)
+		end 
+  end
+  local pointInfo     = contextMenu:addItem("Инфо о точке")
+  pointInfo.onTouch = function()
+    local x,y,z = WGUI.ScreenToWorldCoordinates(e3,e4)
+		local pointIndex = softLogic.GetNearestNavPointIndex(x,y,z,true)
+		local foundPoint = navPoints[pointIndex]
+		if foundPoint ~= nil then
+			WGUI.DrawViewPointInfoDialog(pointIndex)
+		end
+  end
+  local setAsTarget   = contextMenu:addItem("Задать как цель")
   setAsTarget.onTouch = function() local x,y,z = WGUI.ScreenToShipRelativeCoordinates(e3,e4) WGUI.DrawPrecizeJumpWindow(x,y,z)  end
   WGUI.rightPanel.infoBoxPanel.aboutText.text = e3 ..":".. e4
   container:draw()
+end
+
+function WGUI.UpdateChargeBar() 
+  local chargePercent, energyLevel, maxEnergy = shipLogic.GetCoreCharge()
+  local maxBarWidth = 20
+  local barWidth = math.ceil( (chargePercent * maxBarWidth) / 100)
+  WGUI.chargeBarEnergyLevel.text = chargePercent.."% ("..energyLevel..")"
+  WGUI.chargeBarEnergyLevel.localX = WGUI.screenWidth - 16
+  WGUI.chargeBarPanel.width = barWidth
+end
+
+function WGUI.UpdateShipInfoPanel()
+  local x,y,z    = warpdrive.GetShipPosition()
+  local ox,oy,oz = warpdrive.GetShipOrientation()
+  local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
+  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  X: ".. x
+  WGUI.rightPanel.infoBoxPanel.yCoordText.text = "  Y: ".. y
+  WGUI.rightPanel.infoBoxPanel.zCoordText.text = "  Z: ".. z
+  WGUI.rightPanel.infoBoxPanel.dirText.text    = "Направление: " .. orientationConverted
 end
 
 function WGUI.ScreenToWorldCoordinates(sx,sy)
