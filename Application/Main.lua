@@ -182,7 +182,9 @@ function softLogic.IsTrustedPlayer(name)
 end
 
 function softLogic.AddTrusted(name)
-	table.insert(trustedPlayers, name)
+  if name ~= nil and name ~= "" then
+    	table.insert(trustedPlayers, name)
+  end
 end
 function softLogic.RemoveTrusted(name)
 	for i=1,#trustedPlayers do
@@ -370,11 +372,13 @@ function WGUI.Init() -- основной метод, где задаются в�
   local rightPanel = WGUI.rightPanel.infoBoxPanel
   rightPanel.titleText   = app:addChild(GUI.text(WGUI.screenWidth - 28, 36, colors.white, "ИНФО:"))
   rightPanel.statusText  = app:addChild(GUI.adaptiveButton(WGUI.screenWidth - 20,36,1,0,0x57A64E, colors.white,0x57A64E, colors.white, "ГОТОВ К ПРЫЖКУ")) -- TODO: обновление статуса кнопки.
-  rightPanel.coordsTitle = app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Координаты:"))
-  rightPanel.xCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "  X: 0"))
-  rightPanel.yCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  Y: 0"))
-  rightPanel.zCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Z: 0"))
-  rightPanel.dirText     = app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "Направление: НЕТ ДАННЫХ"))
+  rightPanel.shipNameText= app:addChild(GUI.text(WGUI.screenWidth - 27, 37, colors.white, "Имя: НЕТ ДАННЫХ"))
+  rightPanel.coordsTitle = app:addChild(GUI.text(WGUI.screenWidth - 27, 38, colors.white, "Координаты:"))
+  rightPanel.xCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 39, colors.white, "  X: 0"))
+  rightPanel.yCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Y: 0"))
+  rightPanel.zCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "  Z: 0"))
+  rightPanel.dirText     = app:addChild(GUI.text(WGUI.screenWidth - 27, 42, colors.white, "Направление: НЕТ ДАННЫХ"))
+  rightPanel.weightText =  app:addChild(GUI.text(WGUI.screenWidth - 27, 42, colors.white, "Масса корабля: НЕТ ДАННЫХ"))
   rightPanel.aboutText   = app:addChild(GUI.text(WGUI.screenWidth - 20, 50, colors.white, "(c)-TxN-2016-2019"))
   rightPanel.titleText.update = WGUI.UpdateShipInfoPanel
   
@@ -440,6 +444,19 @@ function WGUI.InitOptionsWindow(app)
   WGUI.optionsWindow = app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
   local opts = WGUI.optionsWindow
   opts.hidden = true
+  
+  opts.shipOptsBorder = opts:addChild(WGUI.BorderPanel(1, 1, 30, 49, colors.black, colors.white))
+  opts.shipOptsTitle  = opts:addChild(GUI.text(2, 1, colors.white, "Настройки корабля:"))
+  opts.progOptsBorder = opts:addChild(WGUI.BorderPanel(31, 1, 30, 49, colors.black, colors.white))
+  opts.progOptsTitle  = opts:addChild(GUI.text(32, 1, colors.white, "Настройки программы:"))
+  
+  opts.changeShipNameButton = opts:addChild(GUI.framedButton(2, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Сменить имя: ".. shipInfo.name))
+  opts.changeShipSizeButton = opts:addChild(GUI.framedButton(2, 5, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Задать размеры корабля"))
+  
+  opts.clearAllPointsButton = opts:addChild(GUI.framedButton(32, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить список точек"))
+  
+  opts.changeShipNameButton.onTouch = WGUI.DrawShipNameSetDialog
+  opts.changeShipSizeButton.onTouch = WGUI.DrawShipSizeWindow
 end
 
 function WGUI.SelectNavMapWorldType(worldType)
@@ -622,6 +639,54 @@ function WGUI.DrawViewPointInfoDialog(pointIndex)
   WGUI.Refresh()
 end
 
+function WGUI.DrawShipSizeWindow()
+	local okText     = "ОК"
+	local cancelText = "Отмена"	
+	local GFront, GRight, GUp, GBack, GLeft, GDown = warpdrive.GetDimensions()
+	local data = ecs.universalWindow("auto", "auto", 40, colors.window, true,
+		{"CenterText", colors.text, "Настройка размеров корабля"},
+    {"CenterText", colors.text, "Хинт: Шифт+ПКМ по ядру визуализирует"},
+    {"CenterText", colors.text, "текущие габариты корабля."},
+		{"EmptyLine"},
+		{"CenterText", colors.text, "Блоки спереди:"},
+		{"Input", 0x262626, colors.text, tostring(GFront)},
+		{"CenterText", colors.text, "Блоки сзади:"},
+		{"Input", 0x262626, colors.text, tostring(GBack)},
+		{"CenterText", colors.text, "Блоки сверху:"},
+		{"Input", 0x262626, colors.text, tostring(GUp)},
+		{"CenterText", colors.text, "Блоки снизу:"},
+		{"Input", 0x262626, colors.text, tostring(GDown)},
+		{"CenterText", colors.text, "Блоки слева:"},
+		{"Input", 0x262626, colors.text, tostring(GLeft)},
+		{"CenterText", colors.text, "Блоки справа:"},
+		{"Input", 0x262626, colors.text, tostring(GRight)},
+		{"Separator", 0xaaaaaa},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	
+	if data[7] == okText then
+		warpdrive.SetDimensions(tonumber(data[1]),tonumber(data[2]), tonumber(data[5]),tonumber(data[6]), tonumber(data[3]), tonumber(data[4]))
+		LoadInfoFromCore()
+	end
+  WGUI.Refresh()
+end
+
+function WGUI.DrawShipNameSetDialog()
+	local okText = "ОК"
+	local cancelText = "Отмена"
+	local oldName = warpdrive.GetShipName()
+	local data = ecs.universalWindow("auto", "auto", 40, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Введите имя корабля:"},
+	{"Input", 0x262626, colors.text, oldName},
+	{"EmptyLine"},
+	{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	if data[2] == okText then
+		warpdrive.SetShipName(data[1])
+	end
+end
+
 function WGUI.DrawEditPointDialog(point)
 	local okText = "ОК"
 	local cancelText = "Отмена"
@@ -684,6 +749,8 @@ function WGUI.JumpButtonPush()
       WGUI.Refresh()
 		end
 	end
+  
+
 
 	if warpdrive.MakePreFlightCheck() == false then
 		local okText     = "Продолжить"	
@@ -703,6 +770,103 @@ function WGUI.JumpButtonPush()
 	end
 end
 
+function WGUI.DrawCoreNotFoundError() 
+  buffer.clear(0x2D2D2D)
+  GUI.alert("Не найден контроллер ядра корабля. Подключите его и перезапустите программу.")
+end
+
+function WGUI.FirstLaunch()
+	local okText     = "ОК"
+	local cancelText = "Отмена"
+	local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Добро пожаловать!"},
+	{"CenterText", 0x262626, "Вы установили программу Warp Master 2.0"},
+	{"CenterText", 0x262626, "созданную специально для управления"},
+	{"CenterText", 0x262626, "космическими кораблями."},
+	{"EmptyLine"},
+	{"CenterText", 0xCC4C4C, "Для продолжения нажмите ОК"},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)	
+	data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Первым делом вам надо задать имя корабля."},
+	{"CenterText", 0x262626, "Если вы собираетесь использовать дистанционное"},
+	{"CenterText", 0x262626, "управление, то не пропускайте этот шаг."},
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "В следующем окне введите имя корабля"},
+	{"CenterText", 0xCC4C4C, "И нажмите ОК"},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)
+	WGUI.DrawShipNameSetDialog()
+	data = ecs.universalWindow("auto", "auto", 70, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Теперь необходимо задать размеры корабля."},
+	{"CenterText", 0x262626, "Шаг ВАЖНЫЙ!"},
+	{"CenterText", 0x262626, "Вы же не хотите после прыжка оказаться с половиной корабля?"},
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Подсказка:"},
+	{"CenterText", 0x262626, "Ось X (перед-зад) корабля проходит через ядро и контроллер"},
+	{"CenterText", 0x262626, "И направлена в сторону контроллера. "},
+	{"CenterText", 0x262626, "Стрелка на ядре смотрит вперед."},
+	{"CenterText", 0x262626, "Размеры задаются без учета блока ядра."},
+	{"CenterText", 0x262626, "Т.е. если бы корабль состоял только из блока ядра"},
+	{"CenterText", 0x262626, "Его размеры были бы 0 0 0"},
+	{"EmptyLine"},
+	{"CenterText", 0xCC4C4C, "ОК для продолжения..."},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)
+	WGUI.DrawShipSizeWindow()
+	data = ecs.universalWindow("auto", "auto", 70, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Отлично!"},
+	{"CenterText", 0x262626, "Теперь вам надо назначить себя владельцем корабля."},
+	{"CenterText", 0x262626, "В следующем окне в поле для ввода введите свой ник и нажмите Добавить."},
+	{"EmptyLine"},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)	
+	WGUI.ManageTrustedPlayers() 
+	data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Готово!"},
+	{"CenterText", 0x262626, "В случае чего, вы в любой момент можете изменить эти настройки"},
+	{"CenterText", 0x262626, "кликнув по пункту МЕНЮ нижней панели."},
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Успешных полетов!"},
+	{"Button", {0x57A64E, 0xffffff, okText}}
+	)
+	programSettings.firstLaunch = false
+	softLogic.Save()
+  WGUI.Refresh()
+end
+
+function WGUI.ManageTrustedPlayers() 
+	local cancelText = "Отмена"
+	local addPlyText = "Добавить"
+	local remPlyText = "Удалить"
+	local trustedList = ""
+	for i=1, #trustedPlayers do
+		trustedList = trustedList .. trustedPlayers[i] .. " "
+	end
+	local data = ecs.universalWindow("auto", "auto", 70, colors.window, true,
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Управление доверенными игроками"},
+	{"CenterText", 0x262626, "Игроки из списка смогут управлять кораблем через чат."},
+	{"CenterText", 0x262626, "Список доверенных игроков:"},
+	{"TextField", 10, 0xffffff, 0x262626, 0xcccccc, 0x3366CC, trustedList},
+	{"EmptyLine"},
+	{"CenterText", 0x262626, "Введите ник игрока, которого вы хотите добавить/удалить:"},
+	{"Input", 0x262626, colors.text, ""},
+	{"EmptyLine"},
+	{"Button", {0xCC4C4C, 0xffffff, remPlyText},{0x57A64E, 0xffffff, addPlyText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	if data[2] == addPlyText then
+		softLogic.AddTrusted(data[1])
+	elseif data[2] == remPlyText then
+		softLogic.removeTrusted(data[1])
+	end
+  WGUI.Refresh()
+end
 
 function WGUI.UpdateMapView() 
   if WGUI.navWindow.isDirty == nil then -- TODO: нормальный флаг обновления
@@ -868,10 +1032,16 @@ function WGUI.UpdateShipInfoPanel()
   local x,y,z    = warpdrive.GetShipPosition()
   local ox,oy,oz = warpdrive.GetShipOrientation()
   local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
-  WGUI.rightPanel.infoBoxPanel.xCoordText.text = "  X: ".. x
-  WGUI.rightPanel.infoBoxPanel.yCoordText.text = "  Y: ".. y
-  WGUI.rightPanel.infoBoxPanel.zCoordText.text = "  Z: ".. z
-  WGUI.rightPanel.infoBoxPanel.dirText.text    = "Направление: " .. orientationConverted
+  WGUI.rightPanel.infoBoxPanel.shipNameText.text = "Имя: ".. shipInfo.name
+  WGUI.rightPanel.infoBoxPanel.xCoordText.text   = "  X: "  .. x
+  WGUI.rightPanel.infoBoxPanel.yCoordText.text   = "  Y: "  .. y
+  WGUI.rightPanel.infoBoxPanel.zCoordText.text   = "  Z: "  .. z
+  WGUI.rightPanel.infoBoxPanel.dirText.text      = "Направление: " .. orientationConverted
+  WGUI.rightPanel.infoBoxPanel.weightText.text   = "Масса корабля: " .. shipInfo.weight .. " блоков"
+end
+
+function WGUI.UpdateOptionsWindow()
+  WGUI.optionsWindow.changeShipNameButton.text = "Сменить имя: ".. shipInfo.name
 end
 
 function WGUI.ScreenToWorldCoordinates(sx,sy)
@@ -938,6 +1108,7 @@ function WGUI.Refresh()
     WGUI.UpdateMapView() 
   elseif curMode == "OPT" then
     WGUI.optionsWindow.hidden = false
+    WGUI.UpdateShipInfoPanel()
   elseif curMode == "UTL" then
     
   elseif curMode == "NFO" then
@@ -963,30 +1134,27 @@ local function WarpSoftInit()
 	else 
 		WGUI.DrawNoInternetWindow()
 	end
-	
 end
 
 local function HandleInput(event)
 
 end
 
-
 --Точка входа
 filesystem.setAutorunEnabled(false)
 softLogic.Load()
 c.gpu.setResolution(WGUI.screenWidth, WGUI.screenHeight)
-WGUI.Init()
-WGUI.UpdateMapView() -- TODO: нормальное обновление навигации
-WGUI.Refresh()
 
 if not warpdrive.CheckCore() then
 	WGUI.DrawCoreNotFoundError()
 else
-	WarpSoftInit()
-	
-	if programSettings.firstLaunch == true or programSettings.firstLaunch == nil then
-		--WGUI.FirstLaunch()
+  WarpSoftInit()
+  WGUI.Init()
+  WGUI.UpdateMapView() 
+  WGUI.Refresh()	
+  if programSettings.firstLaunch == true or programSettings.firstLaunch == nil then
+		WGUI.FirstLaunch()
 	end
+  WGUI.app:start()
 end
 
-WGUI.app:start()
