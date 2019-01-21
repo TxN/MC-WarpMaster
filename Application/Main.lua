@@ -366,7 +366,9 @@ function WGUI.Init() -- основной метод, где задаются в�
   actBoxPanel.cloakBox:addItem("Ур. 1")
   actBoxPanel.cloakBox:addItem("Ур. 2")
   
-  actBoxPanel.jumpButton.onTouch = WGUI.JumpButtonPush
+  actBoxPanel.jumpButton.onTouch  = WGUI.JumpButtonPush
+  actBoxPanel.hyperButton.onTouch = WGUI.DrawHyperTransferWindow
+  actBoxPanel.scanButton.onTouch  = WGUI.ScanButtonClick
   --Группа информации на правой панели
   WGUI.rightPanel.infoBoxPanel = WGUI.app:addChild(WGUI.BorderPanel(WGUI.screenWidth - 29, 36, 30, 15, colors.black, colors.white))
   local rightPanel = WGUI.rightPanel.infoBoxPanel
@@ -450,10 +452,11 @@ function WGUI.InitOptionsWindow(app)
   opts.progOptsBorder = opts:addChild(WGUI.BorderPanel(31, 1, 30, 49, colors.black, colors.white))
   opts.progOptsTitle  = opts:addChild(GUI.text(32, 1, colors.white, "Настройки программы:"))
   
-  opts.changeShipNameButton = opts:addChild(GUI.framedButton(2, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Сменить имя: ".. shipInfo.name))
-  opts.changeShipSizeButton = opts:addChild(GUI.framedButton(2, 5, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Задать размеры корабля"))
+  opts.changeShipNameButton   = opts:addChild(GUI.framedButton(2, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Сменить имя: ".. shipInfo.name))
+  opts.changeShipSizeButton   = opts:addChild(GUI.framedButton(2, 5, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Задать размеры корабля"))
   
-  opts.clearAllPointsButton = opts:addChild(GUI.framedButton(32, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить список точек"))
+  opts.clearAllPointsButton   = opts:addChild(GUI.framedButton(32, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить список точек"))
+  opts.clearScanResultsButton = opts:addChild(GUI.framedButton(32, 3, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить результаты сканирования"))
   
   opts.changeShipNameButton.onTouch = WGUI.DrawShipNameSetDialog
   opts.changeShipSizeButton.onTouch = WGUI.DrawShipSizeWindow
@@ -481,6 +484,100 @@ end
 function WGUI.AddNewPointDialog(x,y,z)
   local sx,sy,sz = warpdrive.GetShipPosition()
   WGUI.DrawNewNavPointWindow(x or sx,y or sy,z or sz)
+end
+
+function WGUI.ScanButtonClick()
+  if not c.isAvailable("warpdriveRadar") then
+   GUI.alert("Не найден подключенный радар. Подключите его и попробуйте снова.")
+   return
+ end
+ WGUI.DrawScanDialog() 
+end
+
+function WGUI.DrawScanDialog()
+  local okText     = "ОК"
+	local cancelText = "Отмена"
+	local bound  = 9999
+	local radius = 100
+	
+	local data = ecs.universalWindow("auto", "auto", 40, colors.window, true,
+		{"CenterText", colors.text, "Запуск варп-радара"},
+		{"CenterText", colors.text, "Результаты будут отображены на навигационной карте"},
+		{"EmptyLine"},
+		{"CenterText", colors.text, "Радиус поиска в метрах:"},
+		{"Input", 0x262626, colors.text, tostring(radius)},
+		{"Separator", 0xaaaaaa},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}})
+    if data[2] ~= okText then
+      return
+    end
+    radius = tonumber(data[1])
+    radius = radius or 100
+    local radar       = c.warpdriveRadar
+    local energyReq   = radar.getEnergyRequired(radius)
+    local availEnergy = radar.energy()
+    if energyReq > availEnergy then
+      GUI.alert("Недостаточно энергии в радаре. Требуется: ".. energyReq .. " EU, имеется ".. availEnergy .. " EU.")
+      return
+    end
+    radar.radius(radius)
+    radar.start()
+    os.sleep(0.2)
+    local scanTime = radar.getScanDuration(radius)
+    for i=1,(scanTime + 1) do
+			ecs.square(60,20,45,5,colors.window)
+			ecs.colorText( 62, 21, 0x000000, "Ожидайте...")
+			ecs.colorText( 62, 22, 0x000000, "Сканирование выполняется...")
+			ecs.colorText( 62, 23, 0x000000, "Терминал заблокирован на "..tostring((scanTime + 1) - i).." секунд")
+			os.sleep(1)
+		end
+    
+    ecs.square(60,20,45,5,colors.window)
+    ecs.colorText(62, 22, 0x000000, "Загрузка результатов...")
+    
+    local delay = 0
+    local count
+    repeat -- Ждем пока не появятся результаты
+      count = radar.getResultsCount()
+      os.sleep(0.1)
+      delay = delay + 1
+    until (count ~= nil and count ~= -1) or delay > 15
+    
+    local results = {}
+    
+    if count ~= nil and count > 0 then
+      for i = 0, count - 1 do
+        success, resType, name, x, y, z = radar.getResult(i)
+        if success then
+          -- local res = {} 
+          table.insert(results,resType.." "..name.." ".." @ ("..x.." "..y.." "..z..")") -- TODO: конвертация в SHP навигационную точку с правильными координатами и измерением.
+        end
+      end
+    end
+    WGUI.DrawScanResults(results)
+end
+
+function WGUI.DrawScanResults(results)
+  if results == nil or results[1] == nil then
+    WGUI.Refresh()
+    return
+  end
+  local resultsText = ""
+  for i = 1, #results do
+    resultsText = resultsText .. tostring(i).. ") " .. results[i] .. ";"
+  end
+  local okText = "Сохранить"
+  local cancelText = "Закрыть"
+  local data   = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+		{"CenterText", colors.text, "Результаты сканирования:"},
+		{"EmptyLine"},
+    {"TextField", 5, 0xffffff, 0x262626, 0xcccccc, 0x3366CC, resultsText},
+		{"Separator", 0xaaaaaa},
+		{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}})
+    if data[1] == okText then
+      -- TODO: Добавление результатов на карту с определением координат по измерениям.
+    end
+  WGUI.Refresh()
 end
 
 function WGUI.DrawNewNavPointWindow(x,y,z)
@@ -749,8 +846,6 @@ function WGUI.JumpButtonPush()
       WGUI.Refresh()
 		end
 	end
-  
-
 
 	if warpdrive.MakePreFlightCheck() == false then
 		local okText     = "Продолжить"	
@@ -770,9 +865,52 @@ function WGUI.JumpButtonPush()
 	end
 end
 
+function WGUI.SwitchToHyper()
+	warpdrive.SwitchHyper()
+	warpLockFlag = true
+	for i=1,35 do
+		ecs.square(30,20,45,5,colors.window)
+		ecs.colorText( 32, 21, 0x000000, "Ожидайте...")
+		ecs.colorText( 32, 22, 0x000000, "Гипер-переход выполняется...")
+		ecs.colorText( 32, 23, 0x000000, "Терминал заблокирован на "..tostring(35-i).." секунд")
+		computer.beep(80,0.5)
+		os.sleep(0.5)
+	end
+	local x,y,z = warpdrive.GetShipPosition()
+  WGUI.Refresh()
+end
+
+function WGUI.DrawHyperTransferWindow()
+	local okText     = "Да"	
+	local cancelText = "Нет"
+		
+	if shipInfo.weight < 1200 then
+    GUI.alert("Недостаточная масса корабля! Текущая масса корабля: "..tostring(shipInfo.weight)..", а минимальная масса: 1200")
+		return
+	end
+	local data = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"CenterText", 0x262626, "Вы действительно хотите совершить гипер-переход?"},
+	{"CenterText", 0x262626, "Отменить действие будет невозможно!"},
+	{"Button", {0x57A64E, 0xffffff, okText},{0xCC4C4C, 0xffffff, cancelText}}
+	)
+	if data[1] == okText then
+		softLogic.SwitchToHyper()
+	end
+end
+
 function WGUI.DrawCoreNotFoundError() 
   buffer.clear(0x2D2D2D)
   GUI.alert("Не найден контроллер ядра корабля. Подключите его и перезапустите программу.")
+end
+
+function WGUI.DrawNoInternetWindow()
+	local okText = "OK"
+	local data   = ecs.universalWindow("auto", "auto", 60, colors.window, true,
+	{"CenterText", 0x262626, "Не найдена интернет-плата."},
+	{"CenterText", 0x262626, "Функции, связанные с интернетом, будут отключены."},
+	{"CenterText", 0x262626, "Если вы уверены, что интернет плата установлена,"},
+	{"CenterText", 0x262626, "попробуйте перезагрузить компьютер."},
+	{"Button", {0x57A64E, 0xffffff, okText}})
 end
 
 function WGUI.FirstLaunch()
@@ -869,11 +1007,6 @@ function WGUI.ManageTrustedPlayers()
 end
 
 function WGUI.UpdateMapView() 
-  if WGUI.navWindow.isDirty == nil then -- TODO: нормальный флаг обновления
-    return
-  end
-  WGUI.navWindow.isDirty = false
-  
   local scalex = programSettings.navScaleX -- блоков на знакоместо по x
 	local scaley = programSettings.navScaleY -- аналогично по y
   local x,y,z = warpdrive.GetShipPosition()
