@@ -399,6 +399,7 @@ function WGUI.Init() -- основной метод, где задаются в�
   local app = WGUI.app 
   -- основное окно
   WGUI.mainWindow = app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster 2.0", true))
+  WGUI.app.eventHandler = CommonLevelHandler
   WGUI.mainWindow.eventHandler = nil -- нам не нужна поддержка перетаскивания окна, оно должно быть всегда в одном положении.
   WGUI.mainWindow.titleLabel.colors.text = colors.white
   local actionButtons = WGUI.mainWindow.actionButtons
