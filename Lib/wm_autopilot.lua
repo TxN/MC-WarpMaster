@@ -55,7 +55,7 @@ function autopilot.Jump()
 	warpdrive.Warp(true)
 	autopilot.runtimeParams.warpLockFlag = true	
 	autopilot.OnAutopilotBusy()
-	autopilot.delayTimerID = event.timer(16, autopilot.JumpDelayComplete)
+	autopilot.delayTimerID = event.timer(28, autopilot.JumpDelayComplete)
 end
 
 function autopilot.JumpDelayComplete() 
@@ -71,7 +71,6 @@ function autopilot.JumpDelayComplete()
 		end
 	else 
 		autopilot.OnAutopilotBusy()
-
 	end
 end
 

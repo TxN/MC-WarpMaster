@@ -57,7 +57,7 @@ uiModes["NAV"] = "Навигация"
 uiModes["OPT"] = "Настройки"
 uiModes["UTL"] = "Инструменты"
 uiModes["NFO"] = "Инфо"
- 
+-- AUT - автопилот (скрытый режим)
 
 local programSettings = {
 	firstLaunch      = true,
@@ -195,6 +195,79 @@ function softLogic.RemoveTrusted(name)
 	end
 end
 
+function softLogic.ParseRCCommand(command,sender)
+	if command == nil then
+		return
+	end
+	local args = wmUtils.splitString(command, " ")
+	
+	if args[1] == "!rc" then
+		if args[2] ~= shipInfo.name then
+			return
+		end
+		if args[3] == "jump" then
+			warpdrive.SetJumpTarget(args[4],args[5],args[6],args[7])
+			warpdrive.Warp(false)
+			warpLockFlag = true		
+		elseif args[3] == "shutdown" then
+			softLogic.Quit()
+			computer.shutdown()
+		elseif args[3] == "air" then
+			if args[4] == "on" then
+				warpdrive.SetAirGenerators(true)
+			elseif args[4] == "off" then
+				warpdrive.SetAirGenerators(false)
+			end
+		elseif args[3] == "lock" then
+			programSettings.lock = true
+			softLogic.Save()
+		elseif args[3] == "unlock" then
+			programSettings.lock = false
+			softLogic.Save()
+		elseif args[3] == "addTrusted" then
+			if args[4] ~= nil then
+				softLogic.addTrusted(args[4])
+			end
+		elseif args[3] == "removeTrusted" then
+			if args[4] ~= nil then
+				softLogic.removeTrusted(args[4])
+			end			
+		elseif args[3] == "autopilot" then
+			if args[4] ~= nil then
+				for i= 1, #navPoints do
+					if navPoints[i][1] == args[4] then
+						autopilot.SetTarget(navPoints[i])
+						autopilot.Start()
+					end
+				end
+			end			
+		elseif args[3] == "newPoint" then
+			if args[4] ~= nil then
+				local nPoint = {args[4], args[5], tonumber(args[6]), tonumber(args[7]), tonumber(args[8])}
+				table.insert(navPoints, nPoint)
+        WGUI.Refresh()
+			end		
+		elseif args[3] == "autopilotStop" then
+			autopilot.DeactivateAutopilot()
+		elseif args[3] == "autoWander" then
+			local wanderPoints = {}
+			local k = 4
+			while args[k] ~= nil do
+				for i= 1, #navPoints do
+					if navPoints[i][1] == args[k] then
+						table.insert(wanderPoints,navPoints[i])
+					end
+				end
+				k = k + 1
+			end
+			autopilot.wanderPoints = wanderPoints
+			autopilot.mode = "wander"
+			autopilot.wanderIndex = 1
+			autopilot.SetTarget(autopilot.wanderPoints[1])
+			autopilot.Start()
+		end
+	end
+end
 
 function softLogic.Save()
 	wmUtils.SaveData(applicationDataPath.."/WarpMasterNavPoints.txt", navPoints)
@@ -384,7 +457,8 @@ function WGUI.Init() -- основной метод, где задаются в�
   rightPanel.aboutText   = app:addChild(GUI.text(WGUI.screenWidth - 20, 50, colors.white, "(c)-TxN-2016-2019"))
   rightPanel.titleText.update = WGUI.UpdateShipInfoPanel
   
-  WGUI.InitOptionsWindow(app) -- окно настроек
+  WGUI.InitOptionsWindow(app)    -- окно настроек
+  WGUI.InitAutopilotWindow(app)  -- окно активного автопилота
   
   -- окно НАВ режима
   WGUI.navWindow = app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
@@ -460,6 +534,16 @@ function WGUI.InitOptionsWindow(app)
   
   opts.changeShipNameButton.onTouch = WGUI.DrawShipNameSetDialog
   opts.changeShipSizeButton.onTouch = WGUI.DrawShipSizeWindow
+end
+
+function WGUI.InitAutopilotWindow(app)
+  WGUI.autopilotBusyWindow = app:addChild(GUI.container(1, 2, WGUI.screenWidth - 30, WGUI.screenHeight - 1))
+  local busyWindow =  WGUI.autopilotBusyWindow
+  busyWindow.hidden = true
+  
+  busyWindow.autopilotTitle   = busyWindow:addChild(GUI.text(70, 23, colors.white, "Автопилот активен"))
+  busyWindow.disableAutopilot = busyWindow:addChild(GUI.framedButton(70, 25, 20, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить автопилот"))
+  busyWindow.disableAutopilot.onTouch = function() autopilot.DeactivateAutopilot() end
 end
 
 function WGUI.SelectNavMapWorldType(worldType)
@@ -550,7 +634,7 @@ function WGUI.DrawScanDialog()
         success, resType, name, x, y, z = radar.getResult(i)
         if success then
           -- local res = {} 
-          table.insert(results,resType.." "..name.." ".." @ ("..x.." "..y.." "..z..")") -- TODO: конвертация в SHP навигационную точку с правильными координатами и измерением.
+          table.insert(results,resType.." "..name.." @("..x.." "..y.." "..z..")") -- TODO: конвертация в SHP навигационную точку с правильными координатами и измерением.
         end
       end
     end
@@ -1006,6 +1090,14 @@ function WGUI.ManageTrustedPlayers()
   WGUI.Refresh()
 end
 
+function WGUI.ShowAutopilotNotice()
+  WGUI.SelectGUIMode("AUT")
+end
+
+function WGUI.CloseAutopilotNotice()
+  WGUI.SelectGUIMode("NAV")
+end
+
 function WGUI.UpdateMapView() 
   local scalex = programSettings.navScaleX -- блоков на знакоместо по x
 	local scaley = programSettings.navScaleY -- аналогично по y
@@ -1157,7 +1249,7 @@ function WGUI.UpdateChargeBar()
   local maxBarWidth = 20
   local barWidth = math.ceil( (chargePercent * maxBarWidth) / 100)
   WGUI.chargeBarEnergyLevel.text = chargePercent.."% ("..energyLevel..")"
-  WGUI.chargeBarEnergyLevel.localX = WGUI.screenWidth - 16
+  WGUI.chargeBarEnergyLevel.localX = WGUI.screenWidth - 17
   WGUI.chargeBarPanel.width = barWidth
 end
 
@@ -1165,12 +1257,13 @@ function WGUI.UpdateShipInfoPanel()
   local x,y,z    = warpdrive.GetShipPosition()
   local ox,oy,oz = warpdrive.GetShipOrientation()
   local orientationConverted = WGUI.ConvertRawOrientation(ox,oz)
-  WGUI.rightPanel.infoBoxPanel.shipNameText.text = "Имя: ".. shipInfo.name
-  WGUI.rightPanel.infoBoxPanel.xCoordText.text   = "  X: "  .. x
-  WGUI.rightPanel.infoBoxPanel.yCoordText.text   = "  Y: "  .. y
-  WGUI.rightPanel.infoBoxPanel.zCoordText.text   = "  Z: "  .. z
-  WGUI.rightPanel.infoBoxPanel.dirText.text      = "Направление: " .. orientationConverted
-  WGUI.rightPanel.infoBoxPanel.weightText.text   = "Масса корабля: " .. shipInfo.weight .. " блоков"
+  local panel = WGUI.rightPanel.infoBoxPanel
+  panel.shipNameText.text = "Имя: ".. shipInfo.name
+  panel.xCoordText.text   = "  X: "  .. x
+  panel.yCoordText.text   = "  Y: "  .. y
+  panel.zCoordText.text   = "  Z: "  .. z
+  panel.dirText.text      = "Направление: " .. orientationConverted
+  panel.weightText.text   = "Масса корабля: " .. shipInfo.weight .. " блоков"
 end
 
 function WGUI.UpdateOptionsWindow()
@@ -1232,8 +1325,9 @@ end
 
 function WGUI.Refresh()
   --Прячем все активные окошки
-  WGUI.navWindow.hidden = true
-  WGUI.optionsWindow.hidden = true
+  WGUI.navWindow.hidden           = true
+  WGUI.optionsWindow.hidden       = true
+  WGUI.autopilotBusyWindow.hidden = true
   
   local curMode = programSettings.currentGUIMode
   if curMode == "NAV" then
@@ -1245,6 +1339,8 @@ function WGUI.Refresh()
   elseif curMode == "UTL" then
     
   elseif curMode == "NFO" then
+    
+  elseif curMode == "AUT" then
     
   end
   WGUI.app:draw(true)
@@ -1258,6 +1354,11 @@ end
 local function WarpSoftInit()
 	warpdrive.SetCoreMovement(0,0,0) 
 	LoadInfoFromCore()
+  autopilot.OnAutopilotBusy   = WGUI.ShowAutopilotNotice
+  autopilot.OnAutopilotFinish = WGUI.CloseAutopilotNotice
+  if programSettings.currentGUIMode == "AUT" then
+    programSettings.currentGUIMode = "NAV"
+  end
 	
 	if wmUtils.HasInternet() == true then
 		local check, curVersion, remoteVersion = tools.CheckForUpdates()
@@ -1269,8 +1370,17 @@ local function WarpSoftInit()
 	end
 end
 
-local function HandleInput(event)
-
+local function CommonLevelHandler(container, object, e1, e2, e3, e4)
+  if e1 == "shipCoreCooldownDone" then
+    computer.beep(800,0.5)
+    warpLockFlag = false
+  elseif e1 == "chat_message" then
+    local ply_name = e3
+		local message = e4
+    if softLogic.IsTrustedPlayer(ply_name) == true then
+			softLogic.ParseRCCommand(message,ply_name)
+		end
+  end
 end
 
 --Точка входа
