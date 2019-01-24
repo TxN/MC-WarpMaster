@@ -393,14 +393,13 @@ function WGUI.TextBoxCustomHandler(application, object, e1, e2, e3, e4, e5) -- �
   end
 end
 
-
 function WGUI.Init() -- основной метод, где задаются все основные элементы интерфейса
   WGUI.app = GUI.application(1, 1, WGUI.screenWidth, WGUI.screenHeight)
   local app = WGUI.app 
   -- основное окно
   WGUI.mainWindow = app:addChild(GUI.titledWindow(1, 1, WGUI.screenWidth, WGUI.screenHeight,"WarpMaster 2.0", true))
-  WGUI.app.eventHandler = CommonLevelHandler
-  WGUI.mainWindow.eventHandler = nil -- нам не нужна поддержка перетаскивания окна, оно должно быть всегда в одном положении.
+  app.eventHandler = WGUI.CommonEventHandler
+  WGUI.mainWindow.eventHandler = nil-- нам не нужна поддержка перетаскивания окна, оно должно быть всегда в одном положении.
   WGUI.mainWindow.titleLabel.colors.text = colors.white
   local actionButtons = WGUI.mainWindow.actionButtons
   actionButtons.close.onTouch = WGUI.Terminate
@@ -436,9 +435,9 @@ function WGUI.Init() -- основной метод, где задаются в�
   actBoxPanel.scanButton  = app:addChild(GUI.framedButton(WGUI.screenWidth - 28, 23, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "СКАНИРОВАТЬ"))
   actBoxPanel.cloakTitle  = app:addChild(GUI.text(WGUI.screenWidth - 27, 27, colors.white, "Маскировка: "))
   actBoxPanel.cloakBox    = app:addChild(GUI.comboBox(WGUI.screenWidth - 12, 26, 12, 3, 0xEEEEEE, 0x2D2D2D, colors.greenButton, 0x888888))
-  actBoxPanel.cloakBox:addItem("Откл.")
-  actBoxPanel.cloakBox:addItem("Ур. 1")
-  actBoxPanel.cloakBox:addItem("Ур. 2")
+  actBoxPanel.cloakBox:addItem("Откл.").onTouch = function() WGUI.SetCloakTier(0) end
+  actBoxPanel.cloakBox:addItem("Ур. 1").onTouch = function() WGUI.SetCloakTier(1) end
+  actBoxPanel.cloakBox:addItem("Ур. 2").onTouch = function() WGUI.SetCloakTier(2) end
   
   actBoxPanel.jumpButton.onTouch  = WGUI.JumpButtonPush
   actBoxPanel.hyperButton.onTouch = WGUI.DrawHyperTransferWindow
@@ -454,7 +453,7 @@ function WGUI.Init() -- основной метод, где задаются в�
   rightPanel.yCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 40, colors.white, "  Y: 0"))
   rightPanel.zCoordText  = app:addChild(GUI.text(WGUI.screenWidth - 27, 41, colors.white, "  Z: 0"))
   rightPanel.dirText     = app:addChild(GUI.text(WGUI.screenWidth - 27, 42, colors.white, "Направление: НЕТ ДАННЫХ"))
-  rightPanel.weightText =  app:addChild(GUI.text(WGUI.screenWidth - 27, 42, colors.white, "Масса корабля: НЕТ ДАННЫХ"))
+  rightPanel.weightText  =  app:addChild(GUI.text(WGUI.screenWidth - 27, 42, colors.white, "Масса корабля: НЕТ ДАННЫХ"))
   rightPanel.aboutText   = app:addChild(GUI.text(WGUI.screenWidth - 20, 50, colors.white, "(c)-TxN-2016-2019"))
   rightPanel.titleText.update = WGUI.UpdateShipInfoPanel
   
@@ -531,7 +530,7 @@ function WGUI.InitOptionsWindow(app)
   opts.changeShipSizeButton   = opts:addChild(GUI.framedButton(2, 5, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Задать размеры корабля"))
   
   opts.clearAllPointsButton   = opts:addChild(GUI.framedButton(32, 2, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить список точек"))
-  opts.clearScanResultsButton = opts:addChild(GUI.framedButton(32, 3, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить результаты сканирования"))
+  opts.clearScanResultsButton = opts:addChild(GUI.framedButton(32, 5, 28, 3, colors.white, colors.white, colors.greenButton, colors.greenButton, "Очистить рез. сканирования"))
   
   opts.changeShipNameButton.onTouch = WGUI.DrawShipNameSetDialog
   opts.changeShipSizeButton.onTouch = WGUI.DrawShipSizeWindow
@@ -1324,6 +1323,28 @@ function WGUI.GetParamsForPointType(pointType)
   return result
 end
 
+function WGUI.SetCloakTier(tier)
+  if not c.isAvailable("warpdriveCloakingCore") then
+    GUI.alert("Маскировщик не найден. Подключите маскировщик и попробуйте повторить.")
+    return
+  end
+  local cloak = c.warpdriveCloakingCore
+  tier = tier or 0
+  if tier == 0 then
+    cloak.enable(false)
+    return
+  end  
+  local valid, msg = cloak.isAssemblyValid()
+  if not valid then 
+    GUI.alert("Ошибка! Маскировщик собран неверно: " ..msg)
+    return
+  end
+  cloak.enable(false)
+  os.sleep(0.1)
+  cloak.tier(tier)
+  cloak.enable(true)
+end
+
 function WGUI.Refresh()
   --Прячем все активные окошки
   WGUI.navWindow.hidden           = true
@@ -1371,7 +1392,7 @@ local function WarpSoftInit()
 	end
 end
 
-local function CommonLevelHandler(container, object, e1, e2, e3, e4)
+function WGUI.CommonEventHandler(container, object, e1, e2, e3, e4, ...) -- для обработки не UI-событий
   if e1 == "shipCoreCooldownDone" then
     computer.beep(800,0.5)
     warpLockFlag = false
